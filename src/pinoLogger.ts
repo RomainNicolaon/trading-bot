@@ -16,28 +16,28 @@ class pinoLoggerUtil {
     });
   }
 
-  debug(msg: string, ...args: any[]): void {
-    this.PinoLogger.debug(msg, ...args);
+  debug(obj?: any, msg?: string, ...args: any[]): void {
+    this.PinoLogger.debug(obj, msg, ...args);
     this.PinoLogger.flush();
   }
 
-  info(msg: string, ...args: any[]): void {
-    this.PinoLogger.info(msg, ...args);
+  info(obj?: any, msg?: string, ...args: any[]): void {
+    this.PinoLogger.info(obj, msg, ...args);
     this.PinoLogger.flush();
   }
 
-  warn(msg: string, ...args: any[]): void {
-    this.PinoLogger.warn(msg, ...args);
+  warn(obj?: any, msg?: string, ...args: any[]): void {
+    this.PinoLogger.warn(obj, msg, ...args);
     this.PinoLogger.flush();
   }
 
-  error(msg: string, ...args: any[]): void {
-    this.PinoLogger.error(msg, ...args);
+  error(obj?: any, msg?: string, ...args: any[]): void {
+    this.PinoLogger.error(obj, msg, ...args);
     this.PinoLogger.flush();
   }
 
-  fatal(msg: string, ...args: any[]): void {
-    this.PinoLogger.fatal(msg, ...args);
+  fatal(obj?: any, msg?: string, ...args: any[]): void {
+    this.PinoLogger.fatal(obj, msg, ...args);
     this.PinoLogger.flush();
   }
 }

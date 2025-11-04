@@ -54,12 +54,12 @@ export function startAlpacaSocket(
               trades: SYMBOLS,
             })
           );
-          pinoLogger.info("Subscribed to symbols", { symbols: SYMBOLS });
+          pinoLogger.info({ symbols: SYMBOLS }, "Subscribed to symbols");
         }
 
         // Subscription confirmation
         else if (m.T === "subscription") {
-          pinoLogger.info("Subscription confirmed", { subscriptions: m });
+          pinoLogger.info({ subscriptions: m }, "Subscription confirmed");
         }
 
         // Trade data
@@ -77,26 +77,27 @@ export function startAlpacaSocket(
 
         // Error messages
         else if (m.T === "error") {
-          pinoLogger.error("Alpaca error", { error: m });
+          pinoLogger.error({ error: m }, "Alpaca error");
         }
       });
     } catch (err) {
-      pinoLogger.error("Parse error", { err });
+      pinoLogger.error({ err }, "Parse error");
     }
   });
 
   ws.on("error", (e) => {
-    pinoLogger.error("WebSocket error", { error: e.message });
+    pinoLogger.error({ error: e.message }, "WebSocket error");
   });
 
   ws.on("close", (code, reason) => {
-    pinoLogger.warn(`🔌 WebSocket closed - Code: ${code}`, {
-      code,
-      reason: reason.toString(),
-    });
+    pinoLogger.warn(
+      { code, reason: reason.toString() },
+      `🔌 WebSocket closed - Code: ${code}`
+    );
 
     if (code === 1008) {
       pinoLogger.error(
+        { code, reason: reason.toString() },
         "Authentication failed - check your Alpaca API credentials"
       );
     }

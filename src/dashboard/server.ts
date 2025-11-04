@@ -99,7 +99,7 @@ export class DashboardServer {
       if (err) {
         res.writeHead(500);
         res.end("Error loading file");
-        pinoLogger.error("Error serving file", { err, filename });
+        pinoLogger.error({ err, filename }, "Error serving file");
         return;
       }
       res.writeHead(200, { "Content-Type": contentType });
@@ -121,7 +121,7 @@ export class DashboardServer {
       positions: Array.from(this.positions.values()),
     });
 
-    pinoLogger.info("Trade recorded", { trade });
+    pinoLogger.info({ trade }, "Trade recorded");
   }
 
   // Update price for P&L calculation

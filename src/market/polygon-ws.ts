@@ -30,11 +30,14 @@ export function startPolygonSocket(onTrade: (m: TradeMsg) => void) {
       if (!Array.isArray(msgs)) return;
       msgs.forEach((m: any) => {
         // Log all message types for debugging
-        pinoLogger.info("ws message", {
-          event: m.ev,
-          status: m.status,
-          message: m.message,
-        });
+        pinoLogger.info(
+          {
+            event: m.ev,
+            status: m.status,
+            message: m.message,
+          },
+          "ws message"
+        );
 
         if (m.ev === "status") {
           // Handle status messages (auth success/fail, subscription status)
@@ -43,7 +46,7 @@ export function startPolygonSocket(onTrade: (m: TradeMsg) => void) {
           } else if (m.status === "auth_failed") {
             pinoLogger.error("Authentication failed - check your API key");
           } else if (m.status === "success") {
-            pinoLogger.info("Subscription successful", { message: m.message });
+            pinoLogger.info({ message: m.message }, "Subscription successful");
           }
         } else if (m.ev === "T") {
           // Trade event
@@ -58,17 +61,18 @@ export function startPolygonSocket(onTrade: (m: TradeMsg) => void) {
         }
       });
     } catch (err) {
-      pinoLogger.error("parse err", { err });
+      pinoLogger.error({ err }, "parse err");
     }
   });
-  ws.on("error", (e) => pinoLogger.error("ws error", { error: e.message }));
+  ws.on("error", (e) => pinoLogger.error({ error: e.message }, "ws error"));
   ws.on("close", (code, reason) => {
     pinoLogger.info(
-      `ws closed - Code: ${code}, Reason: ${reason || "No reason provided"}`,
-      { code, reason: reason.toString() }
+      { code, reason: reason.toString() },
+      `ws closed - Code: ${code}, Reason: ${reason || "No reason provided"}`
     );
     if (code === 1008) {
       pinoLogger.error(
+        { code, reason: reason.toString() },
         "Connection closed due to policy violation (likely auth failure)"
       );
     }

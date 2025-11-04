@@ -38,9 +38,7 @@ if (DATA_PROVIDER === "polygon") {
     pinoLogger.error("   Set it in .env file or use Alpaca instead (free)");
     process.exit(1);
   }
-  pinoLogger.warn(
-    "NOTE: Polygon free tier does NOT include WebSocket access"
-  );
+  pinoLogger.warn("NOTE: Polygon free tier does NOT include WebSocket access");
   pinoLogger.warn("   You need a paid plan ($29/month) for real-time data");
   pinoLogger.warn(
     "   Or switch to Alpaca (free): Set DATA_PROVIDER=alpaca in .env"

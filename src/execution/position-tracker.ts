@@ -57,12 +57,15 @@ export class PositionTracker {
       position.avgPrice =
         position.quantity > 0 ? totalCost / position.quantity : 0;
 
-      pinoLogger.info(`LONG position opened/increased`, {
-        symbol,
-        quantity,
-        price,
-        avgPrice: position.avgPrice,
-      });
+      pinoLogger.info(
+        {
+          symbol,
+          quantity,
+          price,
+          avgPrice: position.avgPrice,
+        },
+        "LONG position opened/increased"
+      );
     } else {
       // SELL - realize P&L
       if (position.quantity > 0) {
@@ -71,10 +74,15 @@ export class PositionTracker {
         trade.pnl = pnl;
 
         pinoLogger.info(
-          `Position closed/reduced - P&L: ${
-            pnl >= 0 ? "+" : ""
-          }$${pnl.toFixed(2)}`,
-          { symbol, quantity, price, pnl: pnl.toFixed(2) }
+          {
+            symbol,
+            quantity,
+            price,
+            pnl: pnl.toFixed(2),
+          },
+          `Position closed/reduced - P&L: ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(
+            2
+          )}`
         );
       }
       position.quantity -= quantity;
