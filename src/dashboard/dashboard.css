@@ -1,0 +1,370 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+header {
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+h1 {
+    font-size: 32px;
+    color: #667eea;
+}
+
+.header-status {
+    display: flex;
+    gap: 1rem;
+}
+
+.connection-status,
+.market-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: #666;
+    padding: 8px 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+}
+
+.status-dot,
+.market-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ccc;
+    animation: pulse 2s infinite;
+}
+
+.market-dot.open {
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.market-dot.closed {
+    background: #ef4444;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.market-dot.pre-market,
+.market-dot.after-hours {
+    background: #f59e0b;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.status-dot.connected {
+    background: #10b981;
+}
+
+.status-dot.disconnected {
+    background: #ef4444;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Summary Cards */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card-title {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-value {
+    font-size: 36px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.card-value.positive {
+    color: #10b981;
+}
+
+.card-value.negative {
+    color: #ef4444;
+}
+
+.card-subtitle {
+    font-size: 14px;
+    color: #999;
+}
+
+/* Main Content */
+.main-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.panel {
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.panel h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #667eea;
+}
+
+/* Positions */
+.positions-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.position-item {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 12px;
+    border-left: 4px solid #667eea;
+}
+
+.position-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.position-symbol {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.position-pnl {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.position-pnl.positive {
+    color: #10b981;
+}
+
+.position-pnl.negative {
+    color: #ef4444;
+}
+
+.position-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    font-size: 14px;
+    color: #666;
+}
+
+.position-detail {
+    display: flex;
+    flex-direction: column;
+}
+
+.position-detail-label {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 3px;
+}
+
+.position-detail-value {
+    font-weight: 600;
+    color: #333;
+}
+
+/* Trades */
+.trades-container {
+    max-height: 500px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.trade-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid #667eea;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.trade-item.buy {
+    border-left-color: #10b981;
+}
+
+.trade-item.sell {
+    border-left-color: #ef4444;
+}
+
+.trade-info {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.trade-side {
+    font-weight: bold;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.trade-side.buy {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.trade-side.sell {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.trade-symbol {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+}
+
+.trade-details {
+    font-size: 14px;
+    color: #666;
+}
+
+.trade-pnl {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.trade-pnl.positive {
+    color: #10b981;
+}
+
+.trade-pnl.negative {
+    color: #ef4444;
+}
+
+.trade-time {
+    font-size: 12px;
+    color: #999;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+    font-size: 14px;
+}
+
+/* Chart */
+.chart-panel {
+    margin-bottom: 30px;
+}
+
+#pnlChart {
+    width: 100%;
+    height: 300px;
+}
+
+/* Scrollbar */
+.trades-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.trades-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.trades-container::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 10px;
+}
+
+.trades-container::-webkit-scrollbar-thumb:hover {
+    background: #5568d3;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+}

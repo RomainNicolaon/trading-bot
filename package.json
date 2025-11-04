@@ -1,0 +1,32 @@
+{
+  "name": "trading-bot-skeleton",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "build": "tsc && xcopy /E /I /Y src\\dashboard\\*.html dist\\dashboard\\ && xcopy /E /I /Y src\\dashboard\\*.css dist\\dashboard\\ && xcopy /E /I /Y src\\dashboard\\*.js dist\\dashboard\\",
+    "prod": "node dist/index.js",
+    "dashboard": "echo \"Dashboard will be available at http://localhost:3000 after running 'npm start'\" && start http://localhost:3000",
+    "lint": "echo \"Add linter\"",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  },
+  "ts-node": {
+    "esm": true
+  },
+  "dependencies": {
+    "@types/ws": "^8.5.6",
+    "axios": "^1.6.0",
+    "dotenv": "^16.6.1",
+    "pino": "^8.12.0",
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.2",
+    "@types/node": "^20.5.1",
+    "jest": "^29.6.1",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.5.0"
+  }
+}

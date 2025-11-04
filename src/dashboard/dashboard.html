@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Bot Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Trading Bot Dashboard</h1>
+            <div class="header-status">
+                <div class="connection-status">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Connecting...</span>
+                </div>
+                <div class="market-status">
+                    <span class="market-dot" id="marketDot"></span>
+                    <span id="marketText">Checking...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="card">
+                <div class="card-title">Total P&L</div>
+                <div class="card-value" id="totalPnl">$0.00</div>
+                <div class="card-subtitle" id="pnlPercent">0.00%</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Total Trades</div>
+                <div class="card-value" id="totalTrades">0</div>
+                <div class="card-subtitle">Executed</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Win Rate</div>
+                <div class="card-value" id="winRate">0%</div>
+                <div class="card-subtitle" id="winLoss">0W / 0L</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Active Positions</div>
+                <div class="card-value" id="activePositions">0</div>
+                <div class="card-subtitle">Open</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Positions Panel -->
+            <div class="panel">
+                <h2>📊 Current Positions</h2>
+                <div class="positions-container" id="positionsContainer">
+                    <div class="empty-state">No open positions</div>
+                </div>
+            </div>
+
+            <!-- Recent Trades Panel -->
+            <div class="panel">
+                <h2>📝 Recent Trades</h2>
+                <div class="trades-container" id="tradesContainer">
+                    <div class="empty-state">No trades yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="panel chart-panel">
+            <h2>📈 P&L Over Time</h2>
+            <canvas id="pnlChart"></canvas>
+            <!-- No P&L Data -->
+            <div id="empty-state"></div>
+        </div>
+
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
