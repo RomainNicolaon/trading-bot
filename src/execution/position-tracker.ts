@@ -1,6 +1,4 @@
-import pino from "pino";
-
-const logger = pino({ level: "info" });
+import pinoLogger from "../pinoLogger.js";
 
 export interface Position {
   symbol: string;
@@ -26,7 +24,12 @@ export class PositionTracker {
   private trades: Trade[] = [];
   private tradeIdCounter = 0;
 
-  recordTrade(symbol: string, side: "BUY" | "SELL", quantity: number, price: number): Trade {
+  recordTrade(
+    symbol: string,
+    side: "BUY" | "SELL",
+    quantity: number,
+    price: number
+  ): Trade {
     const trade: Trade = {
       id: `T${++this.tradeIdCounter}`,
       timestamp: Date.now(),
@@ -48,31 +51,38 @@ export class PositionTracker {
 
     if (side === "BUY") {
       // Calculate new average price
-      const totalCost = position.avgPrice * position.quantity + price * quantity;
+      const totalCost =
+        position.avgPrice * position.quantity + price * quantity;
       position.quantity += quantity;
-      position.avgPrice = position.quantity > 0 ? totalCost / position.quantity : 0;
-      
-      logger.info(
-        { symbol, quantity, price, avgPrice: position.avgPrice },
-        `📈 LONG position opened/increased`
-      );
+      position.avgPrice =
+        position.quantity > 0 ? totalCost / position.quantity : 0;
+
+      pinoLogger.info(`LONG position opened/increased`, {
+        symbol,
+        quantity,
+        price,
+        avgPrice: position.avgPrice,
+      });
     } else {
       // SELL - realize P&L
       if (position.quantity > 0) {
         const pnl = (price - position.avgPrice) * quantity;
         position.realizedPnl += pnl;
         trade.pnl = pnl;
-        
-        logger.info(
-          { symbol, quantity, price, pnl: pnl.toFixed(2) },
-          `📉 Position closed/reduced - P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`
+
+        pinoLogger.info(
+          `Position closed/reduced - P&L: ${
+            pnl >= 0 ? "+" : ""
+          }$${pnl.toFixed(2)}`,
+          { symbol, quantity, price, pnl: pnl.toFixed(2) }
         );
       }
       position.quantity -= quantity;
     }
 
     position.currentPrice = price;
-    position.unrealizedPnl = (position.currentPrice - position.avgPrice) * position.quantity;
+    position.unrealizedPnl =
+      (position.currentPrice - position.avgPrice) * position.quantity;
 
     this.positions.set(symbol, position);
     this.trades.push(trade);
@@ -93,7 +103,7 @@ export class PositionTracker {
   }
 
   getAllPositions(): Position[] {
-    return Array.from(this.positions.values()).filter(p => p.quantity > 0);
+    return Array.from(this.positions.values()).filter((p) => p.quantity > 0);
   }
 
   getTrades(): Trade[] {
@@ -108,9 +118,9 @@ export class PositionTracker {
   }
 
   getStats() {
-    const closedTrades = this.trades.filter(t => t.pnl !== undefined);
-    const wins = closedTrades.filter(t => t.pnl! > 0).length;
-    const losses = closedTrades.filter(t => t.pnl! < 0).length;
+    const closedTrades = this.trades.filter((t) => t.pnl !== undefined);
+    const wins = closedTrades.filter((t) => t.pnl! > 0).length;
+    const losses = closedTrades.filter((t) => t.pnl! < 0).length;
     const totalPnl = this.getTotalPnl();
 
     return {

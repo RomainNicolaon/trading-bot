@@ -1,5 +1,6 @@
 import { PositionTracker } from "./position-tracker.js";
 import { DashboardServer } from "../dashboard/server.js";
+import pinoLogger from "../pinoLogger.js";
 
 let positionTracker: PositionTracker | null = null;
 let dashboardServer: DashboardServer | null = null;
@@ -16,7 +17,7 @@ export async function placeOrder(
   price?: number
 ) {
   // ici tu appellerais l'API broker (Interactive Brokers / Alpaca / FIX)
-  console.log(`[MOCK EXEC] ${side} ${qty} ${symbol} @ ${price || "MKT"}`);
+  pinoLogger.info(`MOCK EXEC: ${side} ${qty} ${symbol} @ ${price || "MKT"}`);
   
   // Record trade in position tracker
   if (positionTracker && price) {

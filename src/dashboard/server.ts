@@ -3,9 +3,8 @@ import http from "http";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import pino from "pino";
+import pinoLogger from "../pinoLogger.js";
 
-const logger = pino({ level: "info" });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export interface Trade {
@@ -46,7 +45,7 @@ export class DashboardServer {
     this.wss = new WebSocketServer({ server: this.httpServer });
 
     this.wss.on("connection", (ws) => {
-      logger.info("📊 Dashboard client connected");
+      pinoLogger.info("Dashboard client connected");
 
       // Send initial state
       ws.send(
@@ -58,19 +57,24 @@ export class DashboardServer {
       );
 
       ws.on("close", () => {
-        logger.info("📊 Dashboard client disconnected");
+        pinoLogger.info("Dashboard client disconnected");
       });
     });
   }
 
   start() {
     this.httpServer.listen(this.port, () => {
-      logger.info(`🌐 Dashboard server running at http://localhost:${this.port}`);
-      logger.info(`📊 Open your browser to view the dashboard`);
+      pinoLogger.info(
+        `Dashboard server running at http://localhost:${this.port}`
+      );
+      pinoLogger.info(`Open your browser to view the dashboard`);
     });
   }
 
-  private handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) {
+  private handleHttpRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ) {
     const url = req.url || "/";
 
     if (url === "/" || url === "/index.html") {
@@ -85,13 +89,17 @@ export class DashboardServer {
     }
   }
 
-  private serveFile(res: http.ServerResponse, filename: string, contentType: string) {
+  private serveFile(
+    res: http.ServerResponse,
+    filename: string,
+    contentType: string
+  ) {
     const filePath = path.join(__dirname, filename);
     fs.readFile(filePath, (err, data) => {
       if (err) {
         res.writeHead(500);
         res.end("Error loading file");
-        logger.error({ err, filename }, "Error serving file");
+        pinoLogger.error("Error serving file", { err, filename });
         return;
       }
       res.writeHead(200, { "Content-Type": contentType });
@@ -113,7 +121,7 @@ export class DashboardServer {
       positions: Array.from(this.positions.values()),
     });
 
-    logger.info({ trade }, "📝 Trade recorded");
+    pinoLogger.info("Trade recorded", { trade });
   }
 
   // Update price for P&L calculation
@@ -142,7 +150,8 @@ export class DashboardServer {
 
     if (trade.side === "BUY") {
       // Calculate new average price
-      const totalCost = position.avgPrice * position.quantity + trade.price * trade.quantity;
+      const totalCost =
+        position.avgPrice * position.quantity + trade.price * trade.quantity;
       position.quantity += trade.quantity;
       position.avgPrice = totalCost / position.quantity;
     } else {
@@ -154,7 +163,8 @@ export class DashboardServer {
     }
 
     position.currentPrice = trade.price;
-    position.unrealizedPnl = (position.currentPrice - position.avgPrice) * position.quantity;
+    position.unrealizedPnl =
+      (position.currentPrice - position.avgPrice) * position.quantity;
 
     this.positions.set(trade.symbol, position);
   }

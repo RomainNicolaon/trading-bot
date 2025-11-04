@@ -1,12 +1,6 @@
 import WebSocket from "ws";
 import { SYMBOLS } from "../config.js";
-import pino from "pino";
-const logger = pino(
-  {
-    level: "info",
-    timestamp: true,
-  }
-);
+import pinoLogger from "../pinoLogger.js";
 
 export type TradeMsg = {
   ev: string;
@@ -27,8 +21,8 @@ export function startAlpacaSocket(
   const ws = new WebSocket(url);
 
   ws.on("open", () => {
-    logger.info("🔌 Alpaca WebSocket opened, authenticating...");
-    
+    pinoLogger.info("Alpaca WebSocket opened, authenticating...");
+
     // Authenticate
     ws.send(
       JSON.stringify({
@@ -42,17 +36,17 @@ export function startAlpacaSocket(
   ws.on("message", (data) => {
     try {
       const msgs = JSON.parse(data.toString());
-      
+
       // Handle array of messages
       const messageArray = Array.isArray(msgs) ? msgs : [msgs];
-      
+
       messageArray.forEach((m: any) => {
         // Debug logging disabled in production
 
         // Authentication response
         if (m.T === "success" && m.msg === "authenticated") {
-          logger.info("✅ Alpaca authentication successful");
-          
+          pinoLogger.info("Alpaca authentication successful");
+
           // Subscribe to trades
           ws.send(
             JSON.stringify({
@@ -60,49 +54,51 @@ export function startAlpacaSocket(
               trades: SYMBOLS,
             })
           );
-          logger.info({ symbols: SYMBOLS }, "📊 Subscribed to symbols");
+          pinoLogger.info("Subscribed to symbols", { symbols: SYMBOLS });
         }
-        
+
         // Subscription confirmation
         else if (m.T === "subscription") {
-          logger.info({ subscriptions: m }, "✅ Subscription confirmed");
+          pinoLogger.info("Subscription confirmed", { subscriptions: m });
         }
-        
+
         // Trade data
         else if (m.T === "t") {
           const tick: TradeMsg = {
             ev: "T",
-            sym: m.S,      // Symbol
-            p: m.p,        // Price
-            s: m.s,        // Size
-            t: m.t,        // Timestamp (nanoseconds)
+            sym: m.S, // Symbol
+            p: m.p, // Price
+            s: m.s, // Size
+            t: m.t, // Timestamp (nanoseconds)
           };
           // Trade logging reduced in production
           onTrade(tick);
         }
-        
+
         // Error messages
         else if (m.T === "error") {
-          logger.error({ error: m }, "❌ Alpaca error");
+          pinoLogger.error("Alpaca error", { error: m });
         }
       });
     } catch (err) {
-      logger.error({ err }, "❌ Parse error");
+      pinoLogger.error("Parse error", { err });
     }
   });
 
   ws.on("error", (e) => {
-    logger.error({ error: e.message }, "❌ WebSocket error");
+    pinoLogger.error("WebSocket error", { error: e.message });
   });
 
   ws.on("close", (code, reason) => {
-    logger.warn(
-      { code, reason: reason.toString() },
-      `🔌 WebSocket closed - Code: ${code}`
-    );
-    
+    pinoLogger.warn(`🔌 WebSocket closed - Code: ${code}`, {
+      code,
+      reason: reason.toString(),
+    });
+
     if (code === 1008) {
-      logger.error("❌ Authentication failed - check your Alpaca API credentials");
+      pinoLogger.error(
+        "Authentication failed - check your Alpaca API credentials"
+      );
     }
   });
 

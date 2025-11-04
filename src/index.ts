@@ -6,22 +6,22 @@ import { DashboardServer } from "./dashboard/server.js";
 import {
   SYMBOLS,
   DATA_PROVIDER,
-  POLYGON_API_KEY,
+  EXTENDED_HOURS,
+  EXECUTION_MODE,
   ALPACA_API_KEY,
   ALPACA_API_SECRET,
-  EXECUTION_MODE,
-  MAX_TRADE_VALUE,
 } from "./config.js";
+import pinoLogger from "./pinoLogger.js";
 
 // Print startup info first
-console.log("🤖 Trading Bot Starting...");
-console.log("📊 Symbols:", SYMBOLS);
-console.log("📈 Strategy: SMA(5,20) Crossover");
-console.log("🔌 Data Provider:", DATA_PROVIDER.toUpperCase());
-console.log("💰 Execution Mode:", EXECUTION_MODE.toUpperCase());
-console.log("💰 Max Trade Value:", MAX_TRADE_VALUE + " €");
-console.log("🌐 Dashboard: http://localhost:3000");
-console.log("---");
+pinoLogger.info("Trading Bot Starting...");
+pinoLogger.info("Symbols:", SYMBOLS);
+pinoLogger.info("Extended Hours:", EXTENDED_HOURS ? "ENABLED" : "DISABLED");
+pinoLogger.info("Strategy: SMA(5,20) Crossover");
+pinoLogger.info("Data Provider:", DATA_PROVIDER.toUpperCase());
+pinoLogger.info("Execution Mode:", EXECUTION_MODE.toUpperCase());
+pinoLogger.info("Dashboard: http://localhost:3000");
+pinoLogger.info("---");
 
 // Import the right execution module based on mode
 let placeOrder: any;
@@ -54,26 +54,28 @@ SYMBOLS.forEach((s) => smaMap.set(s, new SimpleSMA(5, 20)));
 const onTrade = (tick: any) => {
   const s = smaMap.get(tick.sym);
   if (!s) return;
-  
+
   // Update price for P&L calculation
   positionTracker.updatePrice(tick.sym, tick.p);
   dashboardServer.updatePrice(tick.sym, tick.p);
-  
+
   // Feed price to strategy
   s.pushPrice(tick.p);
   const sig = s.checkSignal();
-  
+
   if (sig) {
-    // Calculate quantity to keep trade value under MAX_TRADE_VALUE
-    const maxTradeValue = Number(MAX_TRADE_VALUE) || 50;
+    // Calculate quantity to keep trade value under €500
+    const maxTradeValue = 500;
     const maxQty = Math.floor(maxTradeValue / tick.p);
-    
+
     // Skip trade if price is too high for even 1 share
     if (maxQty < 1) {
-      console.log(`⚠️  Skipping ${sig} ${tick.sym} - price $${tick.p} exceeds max trade value €${maxTradeValue}`);
+      pinoLogger.warn(
+        `Skipping ${sig} ${tick.sym} - price $${tick.p} exceeds max trade value €${maxTradeValue}`
+      );
       return;
     }
-    
+
     const side = sig === "LONG" ? "BUY" : "SELL";
     placeOrder(tick.sym, side, maxQty, tick.p);
   }
@@ -85,18 +87,22 @@ if (DATA_PROVIDER === "polygon") {
 } else if (DATA_PROVIDER === "alpaca") {
   startAlpacaSocket(ALPACA_API_KEY, ALPACA_API_SECRET, onTrade);
 } else {
-  console.error(`❌ Unknown data provider: ${DATA_PROVIDER}`);
-  console.error('   Valid options: "polygon" or "alpaca"');
+  console.error(`Unknown data provider: ${DATA_PROVIDER}`);
+  console.error('Valid options: "polygon" or "alpaca"');
   process.exit(1);
 }
 
 // Log stats every 60 seconds
 setInterval(() => {
   const stats = positionTracker.getStats();
-  console.log("\n📊 Trading Stats:");
-  console.log(`   Total Trades: ${stats.totalTrades}`);
-  console.log(`   Win Rate: ${stats.winRate.toFixed(1)}% (${stats.wins}W/${stats.losses}L)`);
-  console.log(`   Total P&L: $${stats.totalPnl.toFixed(2)}`);
-  console.log(`   Active Positions: ${stats.activePositions}`);
-  console.log("---\n");
+  pinoLogger.info("\nTrading Stats:");
+  pinoLogger.info(`Total Trades: ${stats.totalTrades}`);
+  pinoLogger.info(
+    `Win Rate: ${stats.winRate.toFixed(1)}% (${stats.wins}W/${
+      stats.losses
+    }L)`
+  );
+  pinoLogger.info(`   Total P&L: $${stats.totalPnl.toFixed(2)}`);
+  pinoLogger.info(`   Active Positions: ${stats.activePositions}`);
+  pinoLogger.info("---\n");
 }, 60000);
