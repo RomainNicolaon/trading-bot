@@ -101,12 +101,12 @@ if (DATA_PROVIDER === "polygon") {
 // Log stats every 60 seconds
 setInterval(() => {
   const stats = positionTracker.getStats();
-  pinoLogger.info("\nTrading Stats:");
+  pinoLogger.info("----------Trading Stats----------");
   pinoLogger.info(`Total Trades: ${stats.totalTrades}`);
   pinoLogger.info(
     `Win Rate: ${stats.winRate.toFixed(1)}% (${stats.wins}W/${stats.losses}L)`
   );
-  pinoLogger.info(`   Total P&L: $${stats.totalPnl.toFixed(2)}`);
-  pinoLogger.info(`   Active Positions: ${stats.activePositions}`);
-  pinoLogger.info("---\n");
+  pinoLogger.info(`Total P&L: $${stats.totalPnl.toFixed(2)}`);
+  pinoLogger.info(`Active Positions: ${stats.activePositions}`);
+  pinoLogger.info("----------End of Stats----------");
 }, 60000);
