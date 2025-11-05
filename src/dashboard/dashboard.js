@@ -165,7 +165,7 @@ function updateSummary() {
     document.getElementById('activePositions').textContent = activeCount;
     
     // P&L percentage (assuming starting capital of $10,000)
-    const startingCapital = 10000;
+    const startingCapital = 50;
     const pnlPercent = ((totalPnl / startingCapital) * 100).toFixed(2);
     const pnlPercentEl = document.getElementById('pnlPercent');
     pnlPercentEl.textContent = `${pnlPercent >= 0 ? '+' : ''}${pnlPercent}%`;
@@ -176,30 +176,43 @@ function updateChart() {
     const canvas = document.getElementById('pnlChart');
     const ctx = canvas.getContext('2d');
     
-    // Calculate cumulative P&L over time
-    let cumulativePnl = 0;
+    // Calculate total P&L (realized + unrealized) at current moment
+    const totalPnl = positions.reduce((sum, pos) => 
+        sum + pos.realizedPnl + pos.unrealizedPnl, 0
+    );
+    
+    // Calculate cumulative realized P&L over time from closed trades
+    let cumulativeRealizedPnl = 0;
     const pnlData = trades.slice().reverse().map(trade => {
         if (trade.pnl !== undefined) {
-            cumulativePnl += trade.pnl;
+            cumulativeRealizedPnl += trade.pnl;
         }
         return {
             time: new Date(trade.timestamp),
-            pnl: cumulativePnl
+            pnl: cumulativeRealizedPnl
         };
     });
     
+    // Add current total P&L as the latest point if we have positions
+    if (positions.length > 0 && trades.length > 0) {
+        pnlData.push({
+            time: new Date(),
+            pnl: totalPnl
+        });
+    }
+    
     if (pnlData.length === 0) {
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // make canvas hidden
-        canvas.style.display = 'none';
-        
-        const emptyState = document.getElementById('empty-state');
-        emptyState.textContent = 'No P&L data yet';
-        emptyState.style.fontSize = '24px';
-        emptyState.style.color = '#9ca3af';
-        emptyState.style.textAlign = 'center';
-        return;
+       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+       ctx.fillStyle = '#e5e7eb';
+       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+       ctx.fillStyle = '#9ca3af';
+       ctx.font = '16px sans-serif';
+       ctx.textAlign = 'center';
+       ctx.textBaseline = 'middle';
+       ctx.fillText('No trades yet', canvas.width / 2, canvas.height / 2);
+       return;
     }
     
     // Simple line chart
@@ -239,7 +252,8 @@ function updateChart() {
     ctx.stroke();
     
     // Draw P&L line
-    ctx.strokeStyle = cumulativePnl >= 0 ? '#10b981' : '#ef4444';
+    const currentPnl = pnlData[pnlData.length - 1].pnl;
+    ctx.strokeStyle = currentPnl >= 0 ? '#10b981' : '#ef4444';
     ctx.lineWidth = 3;
     ctx.beginPath();
     
@@ -270,9 +284,9 @@ function updateChart() {
     
     // Current P&L label
     ctx.textAlign = 'left';
-    ctx.fillStyle = cumulativePnl >= 0 ? '#10b981' : '#ef4444';
+    ctx.fillStyle = currentPnl >= 0 ? '#10b981' : '#ef4444';
     ctx.font = 'bold 14px sans-serif';
-    ctx.fillText(`Current: $${cumulativePnl.toFixed(2)}`, canvas.width - padding + 10, 30);
+    ctx.fillText(`Current: $${currentPnl.toFixed(2)}`, canvas.width - padding + 10, 30);
 }
 
 function updateConnectionStatus(connected) {

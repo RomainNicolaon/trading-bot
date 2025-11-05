@@ -315,14 +315,6 @@ h1 {
     color: #999;
 }
 
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 40px;
-    color: #999;
-    font-size: 14px;
-}
-
 /* Chart */
 .chart-panel {
     margin-bottom: 30px;

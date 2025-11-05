@@ -5,12 +5,13 @@ import pinoLogger from "../pinoLogger.js";
 let positionTracker: PositionTracker | null = null;
 let dashboardServer: DashboardServer | null = null;
 
-export function initializeExecution(
+export async function initializeExecution(
   tracker: PositionTracker,
   dashboard: DashboardServer
 ) {
   positionTracker = tracker;
   dashboardServer = dashboard;
+  pinoLogger.info("Mock execution mode - no real positions to sync");
 }
 
 export async function placeOrder(

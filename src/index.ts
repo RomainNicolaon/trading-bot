@@ -10,6 +10,7 @@ import {
   EXECUTION_MODE,
   ALPACA_API_KEY,
   ALPACA_API_SECRET,
+  MAX_TRADE_VALUE,
 } from "./config.js";
 import pinoLogger from "./pinoLogger.js";
 
@@ -50,8 +51,8 @@ dashboardServer.start();
 // Initialize position tracker
 const positionTracker = new PositionTracker();
 
-// Initialize execution system with tracker and dashboard
-initializeExecution(positionTracker, dashboardServer);
+// Initialize execution system with tracker and dashboard (load existing positions)
+await initializeExecution(positionTracker, dashboardServer);
 
 const smaMap = new Map<string, SimpleSMA>();
 SYMBOLS.forEach((s) => smaMap.set(s, new SimpleSMA(5, 20)));
@@ -71,7 +72,7 @@ const onTrade = (tick: any) => {
 
   if (sig) {
     // Calculate quantity to keep trade value under €500
-    const maxTradeValue = 500;
+    const maxTradeValue = Number(MAX_TRADE_VALUE);
     const maxQty = Math.floor(maxTradeValue / tick.p);
 
     // Skip trade if price is too high for even 1 share
@@ -88,10 +89,11 @@ const onTrade = (tick: any) => {
 };
 
 // Start WebSocket based on configured provider
+let wsConnection: any;
 if (DATA_PROVIDER === "polygon") {
-  startPolygonSocket(onTrade);
+  wsConnection = startPolygonSocket(onTrade);
 } else if (DATA_PROVIDER === "alpaca") {
-  startAlpacaSocket(ALPACA_API_KEY, ALPACA_API_SECRET, onTrade);
+  wsConnection = startAlpacaSocket(ALPACA_API_KEY, ALPACA_API_SECRET, onTrade);
 } else {
   pinoLogger.error(`Unknown data provider: ${DATA_PROVIDER}`);
   pinoLogger.error('Valid options: "polygon" or "alpaca"');
@@ -99,7 +101,7 @@ if (DATA_PROVIDER === "polygon") {
 }
 
 // Log stats every 60 seconds
-setInterval(() => {
+const statsInterval = setInterval(() => {
   const stats = positionTracker.getStats();
   pinoLogger.info("----------Trading Stats----------");
   pinoLogger.info(`Total Trades: ${stats.totalTrades}`);
@@ -110,3 +112,52 @@ setInterval(() => {
   pinoLogger.info(`Active Positions: ${stats.activePositions}`);
   pinoLogger.info("----------End of Stats----------");
 }, 60000);
+
+// Graceful shutdown handler
+function gracefulShutdown(signal: string) {
+  pinoLogger.info(`\n🛑 Received ${signal}, shutting down gracefully...`);
+
+  // Stop accepting new trades
+  clearInterval(statsInterval);
+
+  // Close WebSocket connection
+  if (wsConnection) {
+    try {
+      wsConnection.close();
+    } catch (err) {
+      pinoLogger.error({ err }, "Error closing WebSocket");
+    }
+  }
+
+  // Log final stats
+  const finalStats = positionTracker.getStats();
+  pinoLogger.info("----------Final Stats----------");
+  pinoLogger.info(`Total Trades: ${finalStats.totalTrades}`);
+  pinoLogger.info(
+    `Win Rate: ${finalStats.winRate.toFixed(1)}% (${finalStats.wins}W/${finalStats.losses}L)`
+  );
+  pinoLogger.info(`Total P&L: $${finalStats.totalPnl.toFixed(2)}`);
+  pinoLogger.info(`Active Positions: ${finalStats.activePositions}`);
+  pinoLogger.info("----------End of Stats----------");
+  pinoLogger.info("✅ Bot stopped successfully");
+
+  process.exit(0);
+}
+
+// Handle shutdown signals
+process.on("SIGINT", () => gracefulShutdown("SIGINT")); // Ctrl+C
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM")); // Kill command
+
+// Handle uncaught errors to prevent crashes
+process.on("uncaughtException", (err) => {
+  pinoLogger.error({ err: err.message, stack: err.stack }, "❌ Uncaught Exception");
+  pinoLogger.error("Bot will continue running, but please investigate this error");
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  pinoLogger.error(
+    { reason, promise },
+    "❌ Unhandled Promise Rejection"
+  );
+  pinoLogger.error("Bot will continue running, but please investigate this error");
+});
