@@ -28,11 +28,10 @@ export async function initializeExecution(
   dashboardServer = dashboard;
 
   const mode = ALPACA_LIVE ? "LIVE (REAL MONEY)" : "PAPER (FAKE MONEY)";
-  logger.info(`Alpaca execution mode: ${mode}`);
+  logger.info(`Alpaca execution initialized - Mode: ${mode}`);
   logger.info(`API URL: ${ALPACA_API_URL}`);
-  logger.info(`Extended hours: ${EXTENDED_HOURS ? "ENABLED" : "DISABLED"}`);
 
-  // Fetch and sync existing positions from Alpaca
+  // Load existing positions from Alpaca
   try {
     const positions = await getPositions();
     if (positions.length > 0) {
@@ -68,6 +67,33 @@ export async function initializeExecution(
       { error: error.message },
       "Failed to fetch initial positions/account info"
     );
+  }
+
+  // Send initial account info to dashboard
+  await updateAccountInfo();
+
+  // Update account info every 30 seconds
+  setInterval(async () => {
+    await updateAccountInfo();
+  }, 30000);
+}
+
+// Fetch and send account info to dashboard
+async function updateAccountInfo() {
+  if (!dashboardServer) return;
+
+  try {
+    const account = await getAccount();
+    
+    dashboardServer.updateAccountInfo({
+      buyingPower: parseFloat(account.buying_power),
+      cash: parseFloat(account.cash),
+      dailyChange: parseFloat(account.equity) - parseFloat(account.last_equity),
+      dayTradeCount: account.daytrade_count || 0,
+      equity: parseFloat(account.equity),
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, "Failed to fetch account info");
   }
 }
 

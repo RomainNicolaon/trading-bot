@@ -181,6 +181,20 @@ export class DashboardServer {
     });
   }
 
+  // Update account info (buying power, cash, etc.)
+  updateAccountInfo(accountInfo: {
+    buyingPower: number;
+    cash: number;
+    dailyChange: number;
+    dayTradeCount: number;
+    equity: number;
+  }) {
+    this.broadcast({
+      type: "account_info",
+      accountInfo,
+    });
+  }
+
   private broadcast(data: any) {
     const message = JSON.stringify(data);
     this.wss.clients.forEach((client) => {

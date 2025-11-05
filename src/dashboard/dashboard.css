@@ -93,7 +93,41 @@ h1 {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 20px;
+    margin-bottom: 20px;
+}
+
+/* Account Info Cards */
+.account-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
     margin-bottom: 30px;
+}
+
+.account-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.account-card .card-title {
+    color: #666;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.account-card .card-value {
+    color: #333;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.account-card .card-subtitle {
+    color: #666;
+    font-size: 13px;
+    margin-top: 5px;
 }
 
 .card {

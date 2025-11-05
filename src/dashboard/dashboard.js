@@ -57,6 +57,10 @@ function handleMessage(data) {
         case 'log':
             addLog(data.log);
             break;
+            
+        case 'account_info':
+            updateAccountInfo(data.accountInfo);
+            break;
     }
 }
 
@@ -443,6 +447,29 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Update account info cards
+function updateAccountInfo(info) {
+    document.getElementById('buyingPower').textContent = `$${info.buyingPower.toFixed(2)}`;
+    document.getElementById('cash').textContent = `$${info.cash.toFixed(2)}`;
+    
+    const dailyChangeEl = document.getElementById('dailyChange');
+    const dailyChange = info.dailyChange;
+    dailyChangeEl.textContent = `${dailyChange >= 0 ? '+' : ''}$${dailyChange.toFixed(2)}`;
+    dailyChangeEl.style.color = dailyChange >= 0 ? '#10b981' : '#ef4444';
+    
+    const dayTradeCountEl = document.getElementById('dayTradeCount');
+    dayTradeCountEl.textContent = info.dayTradeCount;
+    
+    // Warn if approaching PDT limit
+    if (info.dayTradeCount >= 2) {
+        dayTradeCountEl.style.color = '#ef4444';
+    } else if (info.dayTradeCount >= 1) {
+        dayTradeCountEl.style.color = '#f59e0b';
+    } else {
+        dayTradeCountEl.style.color = 'inherit';
+    }
 }
 
 // Initialize on page load
