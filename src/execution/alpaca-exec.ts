@@ -8,8 +8,9 @@ import {
 } from "../config.js";
 import { PositionTracker } from "./position-tracker.js";
 import { DashboardServer } from "../dashboard/server.js";
+import pinoLogger from "../pinoLogger.js";
 
-const logger = pino({ level: "info" });
+const logger = pinoLogger;
 
 let positionTracker: PositionTracker | null = null;
 let dashboardServer: DashboardServer | null = null;
@@ -180,16 +181,33 @@ export async function placeOrder(
       side: order.side,
     };
   } catch (error: any) {
+    const errorData = error.response?.data;
+    const errorCode = errorData?.code;
+    const errorMessage = errorData?.message || error.message;
+
+    // Handle PDT violations specifically
+    if (errorCode === 40310100) {
+      logger.warn(
+        { symbol, side, qty, errorCode },
+        `⚠️ PDT violation: ${errorMessage} - Position opened today, must hold overnight`
+      );
+      return null; // Don't throw, just return null
+    }
+
+    // Handle other errors
     logger.error(
       {
-        error: error.response?.data || error.message,
+        error: errorData || error.message,
         symbol,
         side,
         qty,
+        errorCode,
       },
-      "Failed to place order"
+      "❌ Failed to place order"
     );
-    throw error;
+    
+    // Don't throw - let bot continue running
+    return null;
   }
 }
 

@@ -169,6 +169,18 @@ export class DashboardServer {
     this.positions.set(trade.symbol, position);
   }
 
+  // Send log message to dashboard
+  sendLog(level: string, message: string) {
+    this.broadcast({
+      type: "log",
+      log: {
+        level,
+        message,
+        timestamp: Date.now(),
+      },
+    });
+  }
+
   private broadcast(data: any) {
     const message = JSON.stringify(data);
     this.wss.clients.forEach((client) => {

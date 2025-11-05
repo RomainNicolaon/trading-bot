@@ -46,29 +46,48 @@
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Positions Panel -->
-            <div class="panel">
-                <h2>📊 Current Positions</h2>
-                <div class="positions-container" id="positionsContainer">
-                    <div class="empty-state">No open positions</div>
+        <!-- Main Content with Sidebar -->
+        <div class="content-wrapper">
+            <!-- Left Column: Main Content -->
+            <div class="main-content">
+                <!-- Positions Panel -->
+                <div class="panel">
+                    <h2>📊 Current Positions</h2>
+                    <div class="positions-container" id="positionsContainer">
+                        <div class="empty-state">No open positions</div>
+                    </div>
+                </div>
+
+                <!-- Recent Trades Panel -->
+                <div class="panel">
+                    <h2>📝 Recent Trades</h2>
+                    <div class="trades-container" id="tradesContainer">
+                        <div class="empty-state">No trades yet</div>
+                    </div>
+                </div>
+
+                <!-- Chart Section -->
+                <div class="panel chart-panel">
+                    <h2>📈 P&L Over Time</h2>
+                    <canvas id="pnlChart"></canvas>
                 </div>
             </div>
 
-            <!-- Recent Trades Panel -->
-            <div class="panel">
-                <h2>📝 Recent Trades</h2>
-                <div class="trades-container" id="tradesContainer">
-                    <div class="empty-state">No trades yet</div>
+            <!-- Right Column: Logs -->
+            <div class="logs-sidebar">
+                <div class="panel logs-panel">
+                    <div class="logs-header">
+                        <h2>📋 Live Logs</h2>
+                        <button class="clear-logs-btn" id="clearLogsBtn">Clear</button>
+                    </div>
+                    <div class="logs-container" id="logsContainer">
+                        <div class="log-entry log-info">
+                            <span class="log-time">--:--:--</span>
+                            <span class="log-message">Waiting for logs...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <!-- Chart Section -->
-        <div class="panel chart-panel">
-            <h2>📈 P&L Over Time</h2>
-            <canvas id="pnlChart"></canvas>
         </div>
 
     </div>

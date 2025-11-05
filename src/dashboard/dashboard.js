@@ -4,6 +4,7 @@ let trades = [];
 let positions = [];
 let pnlHistory = [];
 let chart;
+let logs = [];
 
 // Connect to WebSocket server
 function connect() {
@@ -51,6 +52,10 @@ function handleMessage(data) {
             positions = data.positions || [];
             renderPositions();
             updateSummary();
+            break;
+            
+        case 'log':
+            addLog(data.log);
             break;
     }
 }
@@ -384,10 +389,69 @@ function playNotificationSound() {
     }
 }
 
+// Log Management
+function addLog(log) {
+    logs.unshift(log); // Add to beginning
+    if (logs.length > 200) logs.pop(); // Keep last 200
+    renderLogs();
+}
+
+function renderLogs() {
+    const container = document.getElementById('logsContainer');
+    
+    if (logs.length === 0) {
+        container.innerHTML = `
+            <div class="log-entry log-info">
+                <span class="log-time">--:--:--</span>
+                <span class="log-message">Waiting for logs...</span>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = logs.map(log => {
+        const time = new Date(log.timestamp).toLocaleTimeString('en-US', { 
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        const levelClass = `log-${log.level}`;
+        
+        return `
+            <div class="log-entry ${levelClass}">
+                <span class="log-time">${time}</span>
+                <span class="log-message">${escapeHtml(log.message)}</span>
+            </div>
+        `;
+    }).join('');
+    
+    // Auto-scroll to bottom if user is near bottom
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    if (isNearBottom || logs.length === 1) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+function clearLogs() {
+    logs = [];
+    renderLogs();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Initialize on page load
 window.addEventListener('load', () => {
     connect();
     updateMarketStatus();
+    
+    // Clear logs button
+    document.getElementById('clearLogsBtn').addEventListener('click', clearLogs);
     
     // Update chart on window resize
     window.addEventListener('resize', () => {

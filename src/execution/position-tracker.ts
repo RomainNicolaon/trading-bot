@@ -173,18 +173,10 @@ export class PositionTracker {
     const today = new Date().toISOString().split("T")[0];
 
     for (const pos of alpacaPositions) {
-      // Try to get the actual entry date from Alpaca, fallback to yesterday
-      let openedDate: string;
-      
-      if (pos.created_at) {
-        // Extract date from ISO timestamp (e.g., "2025-11-05T14:30:00Z" -> "2025-11-05")
-        openedDate = pos.created_at.split("T")[0];
-      } else {
-        // Fallback: use yesterday to allow selling
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        openedDate = yesterday.toISOString().split("T")[0];
-      }
+      // IMPORTANT: We can't reliably determine when positions were opened
+      // To be safe with PDT rules, assume all synced positions were opened today
+      // User must wait until next day to sell them
+      const openedDate = today;
 
       const position: Position = {
         symbol: pos.symbol,
@@ -198,18 +190,23 @@ export class PositionTracker {
 
       this.positions.set(pos.symbol, position);
 
-      const canSellToday = openedDate !== today;
-
-      pinoLogger.info(
+      pinoLogger.warn(
         {
           symbol: position.symbol,
           quantity: position.quantity,
           avgPrice: position.avgPrice,
           unrealizedPnl: position.unrealizedPnl.toFixed(2),
-          openedDate: openedDate,
-          canSellToday: canSellToday,
         },
-        `Loaded position: ${position.quantity} shares @ $${position.avgPrice.toFixed(2)} (opened ${openedDate}, can sell today: ${canSellToday ? "YES" : "NO - PDT protection"})`
+        `⚠️ Loaded existing position: ${position.quantity} shares @ $${position.avgPrice.toFixed(2)} - CANNOT SELL TODAY (PDT protection)`
+      );
+    }
+
+    if (alpacaPositions.length > 0) {
+      pinoLogger.warn(
+        "⚠️ Existing positions detected! These cannot be sold today due to PDT rules."
+      );
+      pinoLogger.warn(
+        "💡 To sell these positions, wait until tomorrow or close them manually via Alpaca dashboard."
       );
     }
   }

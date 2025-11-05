@@ -48,6 +48,9 @@ if (EXECUTION_MODE === "real") {
 const dashboardServer = new DashboardServer(3000);
 dashboardServer.start();
 
+// Connect logger to dashboard for live log streaming
+pinoLogger.setDashboard(dashboardServer);
+
 // Initialize position tracker
 const positionTracker = new PositionTracker();
 
