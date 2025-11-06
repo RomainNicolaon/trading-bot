@@ -80,15 +80,20 @@ function renderPositions() {
     }
     
     container.innerHTML = positions.map(pos => {
-        const pnlClass = pos.unrealizedPnl >= 0 ? 'positive' : 'negative';
-        const pnlSign = pos.unrealizedPnl >= 0 ? '+' : '';
+        // Sanitize unrealized P&L
+        const unrealizedPnl = isFinite(pos.unrealizedPnl) && Math.abs(pos.unrealizedPnl) < 1000000 
+            ? pos.unrealizedPnl 
+            : 0;
+        
+        const pnlClass = unrealizedPnl >= 0 ? 'positive' : 'negative';
+        const pnlSign = unrealizedPnl >= 0 ? '+' : '';
         
         return `
             <div class="position-item">
                 <div class="position-header">
                     <div class="position-symbol">${pos.symbol}</div>
                     <div class="position-pnl ${pnlClass}">
-                        ${pnlSign}$${pos.unrealizedPnl.toFixed(2)}
+                        ${pnlSign}$${unrealizedPnl.toFixed(2)}
                     </div>
                 </div>
                 <div class="position-details">
@@ -121,11 +126,16 @@ function renderTrades() {
     container.innerHTML = trades.slice(0, 50).map(trade => {
         const sideClass = trade.side.toLowerCase();
         const time = new Date(trade.timestamp).toLocaleTimeString();
-        const pnlHtml = trade.pnl !== undefined ? `
-            <div class="trade-pnl ${trade.pnl >= 0 ? 'positive' : 'negative'}">
-                ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}
-            </div>
-        ` : '';
+        
+        // Only show P&L if it's valid and reasonable
+        let pnlHtml = '';
+        if (trade.pnl !== undefined && isFinite(trade.pnl) && Math.abs(trade.pnl) < 1000000) {
+            pnlHtml = `
+                <div class="trade-pnl ${trade.pnl >= 0 ? 'positive' : 'negative'}">
+                    ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}
+                </div>
+            `;
+        }
         
         return `
             <div class="trade-item ${sideClass}">
@@ -148,21 +158,25 @@ function renderTrades() {
 }
 
 function updateSummary() {
-    // Calculate total P&L
-    const totalPnl = positions.reduce((sum, pos) => 
-        sum + pos.realizedPnl + pos.unrealizedPnl, 0
-    );
+    // Calculate total P&L with sanity check
+    const totalPnl = positions.reduce((sum, pos) => {
+        const realizedPnl = isFinite(pos.realizedPnl) ? pos.realizedPnl : 0;
+        const unrealizedPnl = isFinite(pos.unrealizedPnl) ? pos.unrealizedPnl : 0;
+        return sum + realizedPnl + unrealizedPnl;
+    }, 0);
     
     const totalPnlEl = document.getElementById('totalPnl');
     const totalPnlSign = totalPnl >= 0 ? '+' : '';
-    totalPnlEl.textContent = `${totalPnlSign}$${totalPnl.toFixed(2)}`;
+    // Clamp to reasonable values
+    const safeTotalPnl = Math.max(-1000000, Math.min(1000000, totalPnl));
+    totalPnlEl.textContent = `${totalPnlSign}$${safeTotalPnl.toFixed(2)}`;
     totalPnlEl.className = 'card-value ' + (totalPnl >= 0 ? 'positive' : 'negative');
     
     // Total trades
     document.getElementById('totalTrades').textContent = trades.length;
     
-    // Win rate
-    const closedTrades = trades.filter(t => t.pnl !== undefined);
+    // Win rate - filter out invalid P&L values
+    const closedTrades = trades.filter(t => t.pnl !== undefined && isFinite(t.pnl) && Math.abs(t.pnl) < 1000000);
     const wins = closedTrades.filter(t => t.pnl > 0).length;
     const losses = closedTrades.filter(t => t.pnl < 0).length;
     const winRate = closedTrades.length > 0 ? (wins / closedTrades.length * 100).toFixed(1) : 0;
@@ -174,9 +188,9 @@ function updateSummary() {
     const activeCount = positions.filter(p => p.quantity > 0).length;
     document.getElementById('activePositions').textContent = activeCount;
     
-    // P&L percentage (assuming starting capital of $10,000)
+    // P&L percentage (assuming starting capital of $50)
     const startingCapital = 50;
-    const pnlPercent = ((totalPnl / startingCapital) * 100).toFixed(2);
+    const pnlPercent = ((safeTotalPnl / startingCapital) * 100).toFixed(2);
     const pnlPercentEl = document.getElementById('pnlPercent');
     pnlPercentEl.textContent = `${pnlPercent >= 0 ? '+' : ''}${pnlPercent}%`;
     pnlPercentEl.style.color = totalPnl >= 0 ? '#10b981' : '#ef4444';

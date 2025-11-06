@@ -78,29 +78,40 @@ export class PositionTracker {
       );
     } else {
       // SELL - realize P&L
-      if (position.quantity > 0) {
+      if (position.quantity > 0 && position.avgPrice > 0) {
         const pnl = (price - position.avgPrice) * quantity;
-        position.realizedPnl += pnl;
-        trade.pnl = pnl;
+        // Sanity check: prevent absurd P&L values
+        if (Math.abs(pnl) < 1000000) {
+          position.realizedPnl += pnl;
+          trade.pnl = pnl;
 
-        pinoLogger.info(
-          {
-            symbol,
-            quantity,
-            price,
-            pnl: pnl.toFixed(2),
-          },
-          `Position closed/reduced - P&L: ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(
-            2
-          )}`
-        );
+          pinoLogger.info(
+            {
+              symbol,
+              quantity,
+              price,
+              pnl: pnl.toFixed(2),
+            },
+            `Position closed/reduced - P&L: ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(
+              2
+            )}`
+          );
+        } else {
+          pinoLogger.warn(
+            { symbol, pnl, avgPrice: position.avgPrice, price },
+            "Skipped recording absurd P&L value - likely bad avgPrice"
+          );
+        }
       }
       position.quantity -= quantity;
     }
 
     position.currentPrice = price;
+    // Only calculate unrealized P&L if avgPrice is valid
     position.unrealizedPnl =
-      (position.currentPrice - position.avgPrice) * position.quantity;
+      position.avgPrice > 0
+        ? (position.currentPrice - position.avgPrice) * position.quantity
+        : 0;
 
     this.positions.set(symbol, position);
     this.trades.push(trade);
@@ -177,12 +188,30 @@ export class PositionTracker {
       // For crypto, we can sell positions anytime (no PDT rules)
       const openedDate = today;
 
+      const avgPrice = parseFloat(pos.avg_entry_price || pos.avgPrice || 0);
+      const currentPrice = parseFloat(pos.current_price || pos.currentPrice || 0);
+      const quantity = parseFloat(pos.qty);
+      
+      // Calculate unrealized P&L safely, only if we have valid prices
+      let unrealizedPnl = 0;
+      if (avgPrice > 0 && currentPrice > 0 && quantity > 0) {
+        unrealizedPnl = (currentPrice - avgPrice) * quantity;
+        // Sanity check
+        if (!isFinite(unrealizedPnl) || Math.abs(unrealizedPnl) > 1000000) {
+          pinoLogger.warn(
+            { symbol: pos.symbol, avgPrice, currentPrice, quantity },
+            "Ignoring invalid unrealized P&L from synced position"
+          );
+          unrealizedPnl = 0;
+        }
+      }
+
       const position: Position = {
         symbol: pos.symbol,
-        quantity: parseFloat(pos.qty),
-        avgPrice: parseFloat(pos.avg_entry_price || pos.avgPrice || 0),
-        currentPrice: parseFloat(pos.current_price || pos.currentPrice),
-        unrealizedPnl: parseFloat(pos.unrealized_pl || pos.unrealizedPnl || 0),
+        quantity: quantity,
+        avgPrice: avgPrice,
+        currentPrice: currentPrice,
+        unrealizedPnl: unrealizedPnl,
         realizedPnl: 0, // We don't track historical realized P&L from before this session
         openedDate: openedDate,
       };
