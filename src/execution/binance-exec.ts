@@ -8,6 +8,7 @@ import {
 import { PositionTracker } from "./position-tracker.js";
 import { DashboardServer } from "../dashboard/server.js";
 import pinoLogger from "../pinoLogger.js";
+import { sendDiscordMessage } from "./discord.js";
 
 const logger = pinoLogger;
 
@@ -109,7 +110,7 @@ async function updateAccountInfo() {
 
 /**
  * Place an order on Binance using CCXT
- * 
+ *
  * @param symbol - Trading pair (e.g., "BTC/USDC")
  * @param side - "BUY" or "SELL"
  * @param qty - Quantity to trade (in base currency, e.g., BTC)
@@ -148,6 +149,8 @@ export async function placeOrder(
         );
         qty = currentQty;
       }
+
+      sendDiscordMessage(`SELL ${qty} ${symbol}`, symbol.split("/")[0]);
     }
 
     // Check buying power before placing BUY orders
@@ -168,7 +171,9 @@ export async function placeOrder(
         if (adjustedQty < minQty) {
           logger.warn(
             { symbol, buyingPower, estimatedCost, minQty },
-            `Insufficient buying power: $${buyingPower.toFixed(2)} available, $${estimatedCost.toFixed(2)} needed. Skipping trade.`
+            `Insufficient buying power: $${buyingPower.toFixed(
+              2
+            )} available, $${estimatedCost.toFixed(2)} needed. Skipping trade.`
           );
           return null;
         }
@@ -178,7 +183,13 @@ export async function placeOrder(
         const roundedQty = parseFloat(adjustedQty.toFixed(precision));
 
         logger.warn(
-          { symbol, originalQty: qty, adjustedQty: roundedQty, buyingPower, estimatedCost },
+          {
+            symbol,
+            originalQty: qty,
+            adjustedQty: roundedQty,
+            buyingPower,
+            estimatedCost,
+          },
           `Adjusted order quantity from ${qty} to ${roundedQty} to fit buying power`
         );
         qty = roundedQty;
@@ -197,6 +208,11 @@ export async function placeOrder(
     logger.info(
       { orderId: order.id, status: order.status, filledQty: order.filled },
       `Order placed: ${side} ${qty} ${symbol}`
+    );
+
+    sendDiscordMessage(
+      `Order placed: ${side} ${qty} ${symbol}`,
+      symbol.split("/")[0]
     );
 
     // Record trade in position tracker
@@ -267,11 +283,11 @@ export async function getPositions() {
       if (bal > 0 && currency !== "USDC") {
         // Skip USDC as it's the quote currency
         const symbol = `${currency}/USDC`;
-        
+
         try {
           // Fetch current price
           const ticker = await exchange.fetchTicker(symbol);
-          
+
           positions.push({
             symbol,
             qty: bal,

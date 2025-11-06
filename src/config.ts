@@ -21,6 +21,9 @@ export const SYMBOLS = (process.env.SYMBOLS || "BTC/USDC,ETH/USDC").split(",");
 // Maximum trade value (in USDC for crypto)
 export const MAX_TRADE_VALUE = Number(process.env.MAX_TRADE_VALUE) || 50;
 
+// Discord webhook URL
+export const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "";
+
 // Validate Binance configuration
 if (!BINANCE_API_KEY || !BINANCE_API_SECRET) {
   pinoLogger.error("ERROR: Binance credentials not set");
