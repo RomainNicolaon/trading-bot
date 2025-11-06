@@ -1,0 +1,294 @@
+import * as ccxt from "ccxt";
+import pino from "pino";
+import {
+  BINANCE_API_KEY,
+  BINANCE_API_SECRET,
+  BINANCE_TESTNET,
+} from "../config.js";
+import { PositionTracker } from "./position-tracker.js";
+import { DashboardServer } from "../dashboard/server.js";
+import pinoLogger from "../pinoLogger.js";
+
+const logger = pinoLogger;
+
+let positionTracker: PositionTracker | null = null;
+let dashboardServer: DashboardServer | null = null;
+let exchange: ccxt.binance | null = null;
+
+/**
+ * Initialize Binance execution using CCXT
+ * CCXT provides a unified API for multiple exchanges
+ */
+export async function initializeExecution(
+  tracker: PositionTracker,
+  dashboard: DashboardServer
+) {
+  positionTracker = tracker;
+  dashboardServer = dashboard;
+
+  const mode = BINANCE_TESTNET ? "TESTNET (FAKE MONEY)" : "LIVE (REAL MONEY)";
+  logger.info(`Binance execution initialized - Mode: ${mode}`);
+
+  // Initialize CCXT Binance exchange
+  const exchangeOptions: any = {
+    apiKey: BINANCE_API_KEY,
+    secret: BINANCE_API_SECRET,
+    enableRateLimit: true, // Important: respect API rate limits
+    options: {
+      defaultType: "spot", // Use spot trading (not futures)
+    },
+  };
+
+  // Set testnet configuration if using testnet
+  if (BINANCE_TESTNET) {
+    exchangeOptions.options.testnet = true;
+    logger.info("Using Binance Testnet");
+  } else {
+    logger.warn("⚠️  WARNING: Using LIVE Binance - REAL MONEY!");
+  }
+
+  exchange = new ccxt.binance(exchangeOptions);
+
+  // Load existing positions from Binance
+  try {
+    const balance = await getBalance();
+    logger.info({ balance }, "Account balance");
+
+    const positions = await getPositions();
+    if (positions.length > 0) {
+      logger.info(
+        { count: positions.length },
+        "Found existing positions in Binance account"
+      );
+      positionTracker.syncPositions(positions);
+
+      // Also sync positions to dashboard
+      for (const pos of positions) {
+        dashboardServer.updatePrice(pos.symbol, pos.currentPrice);
+      }
+    } else {
+      logger.info("No existing positions found in Binance account");
+    }
+  } catch (error: any) {
+    logger.error(
+      { error: error.message },
+      "Failed to fetch initial positions/balance"
+    );
+  }
+
+  // Send initial account info to dashboard
+  await updateAccountInfo();
+
+  // Update account info every 30 seconds
+  setInterval(async () => {
+    await updateAccountInfo();
+  }, 30000);
+}
+
+/**
+ * Fetch and send account info to dashboard
+ */
+async function updateAccountInfo() {
+  if (!dashboardServer || !exchange) return;
+
+  try {
+    const balance = await exchange.fetchBalance();
+    const usdt = balance.USDT || { free: 0, used: 0, total: 0 };
+
+    dashboardServer.updateAccountInfo({
+      buyingPower: Number(usdt.free) || 0,
+      cash: Number(usdt.free) || 0,
+      dailyChange: 0, // CCXT doesn't provide daily change directly
+      dayTradeCount: 0, // No PDT rules for crypto
+      equity: Number(usdt.total) || 0,
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, "Failed to fetch account info");
+  }
+}
+
+/**
+ * Place an order on Binance using CCXT
+ * 
+ * @param symbol - Trading pair (e.g., "BTC/USDT")
+ * @param side - "BUY" or "SELL"
+ * @param qty - Quantity to trade (in base currency, e.g., BTC)
+ * @param price - Current price (for logging and validation)
+ */
+export async function placeOrder(
+  symbol: string,
+  side: "BUY" | "SELL",
+  qty: number,
+  price?: number
+) {
+  if (!exchange) {
+    logger.error("Exchange not initialized");
+    return null;
+  }
+
+  try {
+    // Check for short selling (SELL without existing position)
+    if (side === "SELL") {
+      const currentPosition = positionTracker?.getPosition(symbol);
+      const currentQty = currentPosition?.quantity || 0;
+
+      if (currentQty === 0) {
+        logger.warn(
+          { symbol },
+          `Cannot SELL ${symbol} - no existing position (short selling not allowed)`
+        );
+        return null;
+      }
+
+      // Adjust quantity to not exceed current position
+      if (qty > currentQty) {
+        logger.warn(
+          { symbol, requestedQty: qty, availableQty: currentQty },
+          `Adjusted SELL quantity from ${qty} to ${currentQty} (max available)`
+        );
+        qty = currentQty;
+      }
+    }
+
+    // Check buying power before placing BUY orders
+    if (side === "BUY" && price) {
+      const balance = await exchange.fetchBalance();
+      const usdt = balance.USDT || { free: 0 };
+      const buyingPower = Number(usdt.free) || 0;
+      const estimatedCost = qty * price;
+
+      if (estimatedCost > buyingPower) {
+        // Adjust quantity to fit within buying power (with 1% buffer for price fluctuation)
+        const adjustedQty = (buyingPower * 0.99) / price;
+
+        // Get market info to respect minimum order size
+        const market = exchange.market(symbol);
+        const minQty = market.limits.amount?.min || 0;
+
+        if (adjustedQty < minQty) {
+          logger.warn(
+            { symbol, buyingPower, estimatedCost, minQty },
+            `Insufficient buying power: $${buyingPower.toFixed(2)} available, $${estimatedCost.toFixed(2)} needed. Skipping trade.`
+          );
+          return null;
+        }
+
+        // Round to appropriate precision
+        const precision = market.precision.amount || 8;
+        const roundedQty = parseFloat(adjustedQty.toFixed(precision));
+
+        logger.warn(
+          { symbol, originalQty: qty, adjustedQty: roundedQty, buyingPower, estimatedCost },
+          `Adjusted order quantity from ${qty} to ${roundedQty} to fit buying power`
+        );
+        qty = roundedQty;
+      }
+    }
+
+    logger.info({ symbol, side, qty, price }, "📤 Placing order with Binance");
+
+    // Place market order using CCXT
+    const order = await exchange.createMarketOrder(
+      symbol,
+      side.toLowerCase(),
+      qty
+    );
+
+    logger.info(
+      { orderId: order.id, status: order.status, filledQty: order.filled },
+      `Order placed: ${side} ${qty} ${symbol}`
+    );
+
+    // Record trade in position tracker
+    if (positionTracker && price) {
+      const trade = positionTracker.recordTrade(symbol, side, qty, price);
+
+      // Send to dashboard
+      if (dashboardServer) {
+        dashboardServer.recordTrade(trade);
+      }
+    }
+
+    return {
+      orderId: order.id,
+      status: order.status,
+      symbol: order.symbol,
+      qty: order.amount,
+      side: order.side,
+    };
+  } catch (error: any) {
+    logger.error(
+      {
+        error: error.message,
+        symbol,
+        side,
+        qty,
+      },
+      "❌ Failed to place order"
+    );
+
+    // Don't throw - let bot continue running
+    return null;
+  }
+}
+
+/**
+ * Get account balance
+ */
+export async function getBalance() {
+  if (!exchange) {
+    throw new Error("Exchange not initialized");
+  }
+
+  try {
+    const balance = await exchange.fetchBalance();
+    return balance;
+  } catch (error: any) {
+    logger.error({ error: error.message }, "Failed to get balance");
+    throw error;
+  }
+}
+
+/**
+ * Get current positions
+ * For spot trading, this means checking which coins we have balance for
+ */
+export async function getPositions() {
+  if (!exchange) {
+    throw new Error("Exchange not initialized");
+  }
+
+  try {
+    const balance = await exchange.fetchBalance();
+    const positions: any[] = [];
+
+    // Convert balances to position format
+    for (const [currency, bal] of Object.entries(balance.total)) {
+      if (bal > 0 && currency !== "USDT") {
+        // Skip USDT as it's the quote currency
+        const symbol = `${currency}/USDT`;
+        
+        try {
+          // Fetch current price
+          const ticker = await exchange.fetchTicker(symbol);
+          
+          positions.push({
+            symbol,
+            qty: bal,
+            avg_entry_price: 0, // We don't have historical entry price
+            current_price: ticker.last,
+            unrealized_pl: 0, // Calculate later if needed
+          });
+        } catch (err) {
+          // Skip if ticker not available
+          logger.warn({ currency }, `Could not fetch ticker for ${symbol}`);
+        }
+      }
+    }
+
+    return positions;
+  } catch (error: any) {
+    logger.error({ error: error.message }, "Failed to get positions");
+    throw error;
+  }
+}

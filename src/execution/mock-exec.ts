@@ -20,7 +20,7 @@ export async function placeOrder(
   qty: number,
   price?: number
 ) {
-  // ici tu appellerais l'API broker (Interactive Brokers / Alpaca / FIX)
+  // Mock execution - no real broker API calls
   pinoLogger.info(`MOCK EXEC: ${side} ${qty} ${symbol} @ ${price || "MKT"}`);
 
   // Record trade in position tracker

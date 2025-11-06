@@ -1,6 +1,6 @@
-# Trading Bot Skeleton (TypeScript)
+# Crypto Trading Bot (TypeScript)
 
-A pedagogical algorithmic trading bot that connects to real-time market data via Polygon WebSocket, analyzes prices using Simple Moving Average (SMA) crossover strategy, and executes mock orders.
+A cryptocurrency algorithmic trading bot that connects to Binance for real-time market data, analyzes prices using Simple Moving Average (SMA) crossover strategy, and executes trades on crypto pairs like BTC/USDT and ETH/USDT.
 
 ## 🏗️ Architecture Overview
 
@@ -31,27 +31,27 @@ src/
 ├── index.ts                 # Main orchestrator - connects all components
 ├── config.ts                # Configuration (API keys, symbols)
 ├── market/
-│   ├── polygon-ws.ts        # WebSocket client for Polygon.io
-│   └── alpaca-ws.ts         # WebSocket client for Alpaca (FREE)
+│   └── binance-ws.ts        # WebSocket client for Binance (FREE)
 ├── engine/
 │   └── sma-strategy.ts      # Simple Moving Average strategy
 ├── execution/
+│   ├── binance-exec.ts      # Binance order execution (CCXT)
 │   ├── mock-exec.ts         # Mock order execution
 │   └── position-tracker.ts  # Position and P&L tracking
-└── dashboard/
-    ├── server.ts            # Dashboard WebSocket server
-    ├── dashboard.html       # Dashboard UI
-    ├── dashboard.css        # Dashboard styling
-    └── dashboard.js         # Dashboard client logic
+├── dashboard/
+│   ├── server.ts            # Dashboard WebSocket server
+│   ├── dashboard.html       # Dashboard UI
+│   ├── dashboard.css        # Dashboard styling
+│   └── dashboard.js         # Dashboard client logic
+└── utils/
+    └── close-all-binance-positions.ts  # Utility to close all positions
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js v18+ 
-- **Market Data API Key** (choose one):
-  - **Alpaca** (FREE WebSocket) - Recommended for learning ✅
-  - **Polygon** (Paid $29/month for WebSocket)
+- **Binance API Key** (FREE for crypto trading) 🆓
 
 ### Installation
 
@@ -61,51 +61,52 @@ npm install
 
 ### Configuration
 
-#### Option 1: Using .env file (Recommended)
+#### Step 1: Get Binance API Keys
 
-1. Copy the example file:
-   ```bash
-   cp .env.example .env
-   ```
+**For Testnet (Recommended for learning):**
+1. Visit [Binance Testnet](https://testnet.binance.vision/)
+2. Create an account and generate API keys
+3. No real money required - perfect for testing!
 
-2. **Choose your data provider**:
+**For Live Trading (REAL MONEY):**
+1. Visit [Binance](https://www.binance.com/)
+2. Create an account and complete KYC verification
+3. Generate API keys with trading permissions
+4. ⚠️ **WARNING**: This uses REAL money!
 
-   **A. Alpaca (FREE - Recommended)** 🆓
-   ```bash
-   DATA_PROVIDER=alpaca
-   ALPACA_API_KEY=your_alpaca_key
-   ALPACA_API_SECRET=your_alpaca_secret
-   SYMBOLS=AAPL,TSLA
-   ```
-   Get free keys at: [alpaca.markets](https://alpaca.markets/)
-   
-   📖 **Detailed setup guide**: See [ALPACA_SETUP.md](ALPACA_SETUP.md)
+#### Step 2: Create .env file
 
-   **B. Polygon (Paid $29/month)**
-   ```bash
-   DATA_PROVIDER=polygon
-   POLYGON_API_KEY=your_polygon_key
-   SYMBOLS=AAPL,TSLA
-   ```
-   ⚠️ **Note**: Polygon free tier does NOT include WebSocket access
-
-#### Option 2: Using environment variables
+Create a `.env` file in the project root:
 
 ```bash
-# Windows PowerShell
-$env:POLYGON_API_KEY="your_api_key_here"
-$env:SYMBOLS="AAPL,TSLA"
+# Binance Configuration
+BINANCE_API_KEY=your_binance_api_key
+BINANCE_API_SECRET=your_binance_api_secret
 
-# Linux/Mac
-export POLYGON_API_KEY="your_api_key_here"
-export SYMBOLS="AAPL,TSLA"
+# Use testnet for paper trading (default: true)
+BINANCE_TESTNET=true
+
+# Trading pairs (crypto)
+SYMBOLS=BTC/USDT,ETH/USDT
+
+# Execution mode: "mock" for simulation, "real" for actual trading
+EXECUTION_MODE=mock
+
+# Maximum trade value in USDT
+MAX_TRADE_VALUE=50
 ```
+
+**Important Settings:**
+- `BINANCE_TESTNET=true` - Uses fake money (SAFE for learning)
+- `BINANCE_TESTNET=false` - Uses REAL money (⚠️ BE CAREFUL!)
+- `EXECUTION_MODE=mock` - Simulates trades without placing orders
+- `EXECUTION_MODE=real` - Places actual orders on Binance
 
 ### Run
 
 ```bash
 # Development mode (with ts-node)
-npm run start
+npm run dev
 
 # Open dashboard in browser
 # Navigate to: http://localhost:3000
@@ -113,6 +114,9 @@ npm run start
 # Production mode (compile first)
 npm run build
 npm run prod
+
+# Close all open positions (useful utility)
+npm run close-positions
 ```
 
 ### 📊 View Dashboard
@@ -135,11 +139,12 @@ You'll see:
 ### Step 1: Configuration (`src/config.ts`)
 
 ```typescript
-export const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
-export const SYMBOLS = (process.env.SYMBOLS || 'AAPL,TSLA').split(',');
+export const BINANCE_API_KEY = process.env.BINANCE_API_KEY || '';
+export const BINANCE_API_SECRET = process.env.BINANCE_API_SECRET || '';
+export const SYMBOLS = (process.env.SYMBOLS || 'BTC/USDT,ETH/USDT').split(',');
 ```
 
-**What it does**: Loads API credentials and trading symbols from environment variables.
+**What it does**: Loads Binance API credentials and trading symbols from environment variables.
 
 ---
 
@@ -152,7 +157,7 @@ const smaMap = new Map<string, SimpleSMA>();
 SYMBOLS.forEach(s => smaMap.set(s, new SimpleSMA(5, 20)));
 ```
 
-**What it does**: Creates a separate SMA strategy instance for each symbol (AAPL, TSLA, etc.). Each strategy tracks its own moving averages independently.
+**What it does**: Creates a separate SMA strategy instance for each symbol (BTC/USDT, ETH/USDT, etc.). Each strategy tracks its own moving averages independently.
 
 **Parameters**: 
 - `5` = Short-term window (5 price points)
@@ -161,7 +166,7 @@ SYMBOLS.forEach(s => smaMap.set(s, new SimpleSMA(5, 20)));
 #### 2.2 Start WebSocket Connection
 
 ```typescript
-startPolygonSocket((tick: any) => {
+startBinanceSocket(BINANCE_API_KEY, BINANCE_API_SECRET, (tick: any) => {
   const s = smaMap.get(tick.sym);
   if (!s) return;
   
@@ -169,15 +174,15 @@ startPolygonSocket((tick: any) => {
   const sig = s.checkSignal();
   
   if (sig) {
-    const qty = 100;
+    const maxQty = MAX_TRADE_VALUE / tick.p;
     const side = sig === 'LONG' ? 'BUY' : 'SELL';
-    placeOrder(tick.sym, side, qty, tick.p);
+    placeOrder(tick.sym, side, maxQty, tick.p);
   }
-});
+}, BINANCE_TESTNET);
 ```
 
 **What it does**: 
-1. Establishes WebSocket connection to Polygon
+1. Establishes WebSocket connection to Binance
 2. For each incoming trade tick:
    - Retrieves the appropriate strategy for that symbol
    - Feeds the price to the strategy
@@ -186,61 +191,60 @@ startPolygonSocket((tick: any) => {
 
 ---
 
-### Step 3: Market Data Layer (`src/market/polygon-ws.ts`)
+### Step 3: Market Data Layer (`src/market/binance-ws.ts`)
 
 #### 3.1 WebSocket Connection Setup
 
 ```typescript
-export function startPolygonSocket(onTrade: (m: TradeMsg) => void) {
-  const url = `wss://socket.polygon.io/stocks`;
-  const ws = new WebSocket(url);
+export function startBinanceSocket(
+  apiKey: string,
+  apiSecret: string,
+  onTrade: (tick: any) => void,
+  testnet: boolean = true
+) {
+  const baseUrl = testnet 
+    ? 'wss://testnet.binance.vision/ws'
+    : 'wss://stream.binance.com:9443/ws';
 ```
 
-**What it does**: Creates a WebSocket connection to Polygon's real-time stock data feed.
+**What it does**: Creates a WebSocket connection to Binance's real-time crypto data feed.
 
-#### 3.2 Authentication & Subscription
+#### 3.2 Stream Subscription
 
 ```typescript
-ws.on('open', () => {
-  logger.info('ws open, authenticating');
-  ws.send(JSON.stringify({action: 'auth', params: POLYGON_API_KEY}));
-  ws.send(JSON.stringify({
-    action: 'subscribe', 
-    params: SYMBOLS.map(s => `T.${s}`).join(',')
-  }));
-});
+  const streams = SYMBOLS.map(s => 
+    `${s.toLowerCase().replace('/', '')}@trade`
+  ).join('/');
+  
+  const ws = new WebSocket(`${baseUrl}/${streams}`);
 ```
 
 **What it does**: 
-1. Authenticates with your API key
-2. Subscribes to trade events (`T.AAPL`, `T.TSLA`, etc.)
+1. Subscribes to trade streams for each symbol (e.g., `btcusdt@trade`, `ethusdt@trade`)
+2. Binance provides FREE real-time data for crypto
 
 #### 3.3 Message Processing
 
 ```typescript
 ws.on('message', (data) => {
-  const msgs = JSON.parse(data.toString());
-  if (!Array.isArray(msgs)) return;
+  const msg = JSON.parse(data.toString());
   
-  msgs.forEach((m: any) => {
-    if (m.ev === 'T') {  // 'T' = Trade event
-      const tick: TradeMsg = {
-        ev: m.ev,   // Event type
-        sym: m.sym, // Symbol (e.g., "AAPL")
-        p: m.p,     // Price
-        s: m.s,     // Size
-        t: m.t      // Timestamp
-      };
-      onTrade(tick);
-    }
-  });
+  if (msg.e === 'trade') {
+    const tick = {
+      sym: msg.s.replace('USDT', '/USDT'),  // Convert BTCUSDT to BTC/USDT
+      p: parseFloat(msg.p),                  // Price
+      q: parseFloat(msg.q),                  // Quantity
+      t: msg.T                               // Timestamp
+    };
+    onTrade(tick);
+  }
 });
 ```
 
 **What it does**: 
 1. Parses incoming JSON messages
-2. Filters for trade events (type 'T')
-3. Normalizes data into a `TradeMsg` object
+2. Filters for trade events
+3. Normalizes data into a tick object
 4. Calls the callback function with the tick data
 
 ---
@@ -339,8 +343,7 @@ export async function placeOrder(
   qty: number,
   price?: number
 ) {
-  // TODO: Replace with real broker API
-  // (Interactive Brokers, Alpaca, FIX protocol, etc.)
+  // Mock execution - no real orders placed
   console.log(`[MOCK EXEC] ${side} ${qty} ${symbol} @ ${price || 'MKT'}`);
   return { orderId: 'MOCK-' + Date.now() };
 }
@@ -360,18 +363,18 @@ export async function placeOrder(
 
 ## 🔄 Complete Data Flow Example
 
-1. **Polygon sends trade**: `{"ev":"T","sym":"AAPL","p":150.25,"s":100,"t":1699123456789}`
-2. **WebSocket receives & normalizes**: `{ev:'T', sym:'AAPL', p:150.25, s:100, t:1699123456789}`
-3. **Orchestrator routes to strategy**: `smaMap.get('AAPL').pushPrice(150.25)`
+1. **Binance sends trade**: `{"e":"trade","s":"BTCUSDT","p":"45000.50","q":"0.1","T":1699123456789}`
+2. **WebSocket receives & normalizes**: `{sym:'BTC/USDT', p:45000.50, q:0.1, t:1699123456789}`
+3. **Orchestrator routes to strategy**: `smaMap.get('BTC/USDT').pushPrice(45000.50)`
 4. **Strategy updates windows**:
-   - Short window: `[148.5, 149.0, 149.5, 150.0, 150.25]`
-   - Long window: `[145.0, 145.5, ..., 150.25]` (20 prices)
+   - Short window: `[44800, 44900, 44950, 45000, 45000.50]`
+   - Long window: `[44500, 44550, ..., 45000.50]` (20 prices)
 5. **Strategy calculates**:
-   - Short MA: `149.45`
-   - Long MA: `147.80`
-   - Signal: `LONG` (149.45 > 147.80)
-6. **Order execution**: `placeOrder('AAPL', 'BUY', 100, 150.25)`
-7. **Console output**: `[MOCK EXEC] BUY 100 AAPL @ 150.25`
+   - Short MA: `44930.10`
+   - Long MA: `44750.25`
+   - Signal: `LONG` (44930.10 > 44750.25)
+6. **Order execution**: `placeOrder('BTC/USDT', 'BUY', 0.001, 45000.50)`
+7. **Console output**: `[MOCK EXEC] BUY 0.001 BTC/USDT @ 45000.50`
 
 ---
 
@@ -386,8 +389,9 @@ export async function placeOrder(
 ### Dependencies
 
 - **ws**: WebSocket client for real-time data
+- **ccxt**: Unified cryptocurrency exchange API
+- **binance-api-node**: Binance-specific API client
 - **pino**: Fast JSON logger
-- **axios**: HTTP client (for REST API calls if needed)
 - **ts-node**: TypeScript execution for development
 
 ---
@@ -425,7 +429,7 @@ export async function placeOrder(
 
 1. **Add Position Management**: Track open positions, prevent duplicate entries
 2. **Implement Risk Controls**: Max position size, daily loss limits
-3. **Integrate Real Broker**: Alpaca, Interactive Brokers, or FIX protocol
+3. **Enhance Binance Integration**: Add advanced order types (limit, stop-loss)
 4. **Add More Indicators**: RSI, MACD, Bollinger Bands, volume analysis
 5. **Implement Backtesting**: Test strategy on historical data
 6. **Add Database**: Store trades, positions, and performance metrics
@@ -436,7 +440,8 @@ export async function placeOrder(
 
 ## 📖 Learning Resources
 
-- [Polygon.io API Docs](https://polygon.io/docs/stocks)
+- [Binance API Docs](https://binance-docs.github.io/apidocs/spot/en/)
+- [CCXT Documentation](https://docs.ccxt.com/)
 - [Technical Analysis Basics](https://www.investopedia.com/technical-analysis-4689657)
 - [Algorithmic Trading Guide](https://www.investopedia.com/articles/active-trading/101014/basics-algorithmic-trading-concepts-and-examples.asp)
 

@@ -7,7 +7,7 @@ export interface Position {
   currentPrice: number;
   unrealizedPnl: number;
   realizedPnl: number;
-  openedDate: string; // Date when position was first opened (YYYY-MM-DD format)
+  openedDate: string; // Date when position was first opened (YYYY-MM-DD format) - kept for tracking purposes
 }
 
 export interface Trade {
@@ -108,15 +108,16 @@ export class PositionTracker {
     return trade;
   }
 
-  // Check if a position can be sold today (PDT protection)
+  // Check if a position can be sold today
+  // Note: Crypto has no PDT rules, so positions can always be sold
   canSellToday(symbol: string): boolean {
     const position = this.positions.get(symbol);
     if (!position || position.quantity === 0) {
       return false;
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    return position.openedDate !== today;
+    // Crypto has no PDT restrictions - can sell anytime
+    return true;
   }
 
   updatePrice(symbol: string, price: number) {
@@ -163,50 +164,45 @@ export class PositionTracker {
     };
   }
 
-  // Sync existing positions from Alpaca (for bot restarts)
-  syncPositions(alpacaPositions: any[]) {
+  // Sync existing positions from exchange (for bot restarts)
+  syncPositions(exchangePositions: any[]) {
     pinoLogger.info(
-      { count: alpacaPositions.length },
-      "Syncing existing positions from Alpaca"
+      { count: exchangePositions.length },
+      "Syncing existing positions from exchange"
     );
 
     const today = new Date().toISOString().split("T")[0];
 
-    for (const pos of alpacaPositions) {
-      // IMPORTANT: We can't reliably determine when positions were opened
-      // To be safe with PDT rules, assume all synced positions were opened today
-      // User must wait until next day to sell them
+    for (const pos of exchangePositions) {
+      // For crypto, we can sell positions anytime (no PDT rules)
       const openedDate = today;
 
       const position: Position = {
         symbol: pos.symbol,
         quantity: parseFloat(pos.qty),
-        avgPrice: parseFloat(pos.avg_entry_price),
-        currentPrice: parseFloat(pos.current_price),
-        unrealizedPnl: parseFloat(pos.unrealized_pl),
+        avgPrice: parseFloat(pos.avg_entry_price || pos.avgPrice || 0),
+        currentPrice: parseFloat(pos.current_price || pos.currentPrice),
+        unrealizedPnl: parseFloat(pos.unrealized_pl || pos.unrealizedPnl || 0),
         realizedPnl: 0, // We don't track historical realized P&L from before this session
         openedDate: openedDate,
       };
 
       this.positions.set(pos.symbol, position);
 
-      pinoLogger.warn(
+      pinoLogger.info(
         {
           symbol: position.symbol,
           quantity: position.quantity,
           avgPrice: position.avgPrice,
           unrealizedPnl: position.unrealizedPnl.toFixed(2),
         },
-        `⚠️ Loaded existing position: ${position.quantity} shares @ $${position.avgPrice.toFixed(2)} - CANNOT SELL TODAY (PDT protection)`
+        `✅ Loaded existing position: ${position.quantity} units @ $${position.avgPrice.toFixed(2)}`
       );
     }
 
-    if (alpacaPositions.length > 0) {
-      pinoLogger.warn(
-        "⚠️ Existing positions detected! These cannot be sold today due to PDT rules."
-      );
-      pinoLogger.warn(
-        "💡 To sell these positions, wait until tomorrow or close them manually via Alpaca dashboard."
+    if (exchangePositions.length > 0) {
+      pinoLogger.info(
+        "✅ Existing positions loaded successfully. Crypto has no PDT restrictions - can trade anytime."
       );
     }
   }

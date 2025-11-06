@@ -4,52 +4,40 @@ import pinoLogger from "./pinoLogger.js";
 // Load .env file if it exists
 config();
 
-// Data provider configuration
-export const DATA_PROVIDER = (
-  process.env.DATA_PROVIDER || "alpaca"
-).toLowerCase();
-
-// Polygon configuration (Paid - requires WebSocket plan)
-export const POLYGON_API_KEY = process.env.POLYGON_API_KEY || "";
-
 // Execution mode: "mock" for simulation, "real" for actual trading
 export const EXECUTION_MODE = process.env.EXECUTION_MODE || "mock";
 
-// Alpaca configuration (FREE WebSocket access)
-export const ALPACA_API_KEY = process.env.ALPACA_API_KEY || "";
-export const ALPACA_API_SECRET = process.env.ALPACA_API_SECRET || "";
+// Binance configuration (FREE WebSocket access for crypto)
+export const BINANCE_API_KEY = process.env.BINANCE_API_KEY || "";
+export const BINANCE_API_SECRET = process.env.BINANCE_API_SECRET || "";
 
-// Alpaca live trading
-export const ALPACA_LIVE = EXECUTION_MODE === "real";
+// Use Binance Testnet for paper trading (default), or real trading
+export const BINANCE_TESTNET = process.env.BINANCE_TESTNET !== "false"; // Default to testnet for safety
 
-// Trading symbols
-export const SYMBOLS = (process.env.SYMBOLS || "AAPL,TSLA").split(",");
+// Trading symbols (crypto pairs on Binance)
+// Format: BTC/USDT, ETH/USDT, etc.
+export const SYMBOLS = (process.env.SYMBOLS || "BTC/USDT,ETH/USDT").split(",");
 
-// Extended hours trading (pre-market and after-hours)
-export const EXTENDED_HOURS = process.env.EXTENDED_HOURS === "true";
+// Maximum trade value (in USDT for crypto)
+export const MAX_TRADE_VALUE = Number(process.env.MAX_TRADE_VALUE) || 50;
 
-// Maximum trade value (in euros)
-export const MAX_TRADE_VALUE = process.env.MAX_TRADE_VALUE || 50;
-
-// Validate configuration based on provider
-if (DATA_PROVIDER === "polygon") {
-  if (!POLYGON_API_KEY) {
-    pinoLogger.error("ERROR: POLYGON_API_KEY is not set");
-    pinoLogger.error("   Set it in .env file or use Alpaca instead (free)");
-    process.exit(1);
-  }
-  pinoLogger.warn("NOTE: Polygon free tier does NOT include WebSocket access");
-  pinoLogger.warn("   You need a paid plan ($29/month) for real-time data");
-  pinoLogger.warn(
-    "   Or switch to Alpaca (free): Set DATA_PROVIDER=alpaca in .env"
+// Validate Binance configuration
+if (!BINANCE_API_KEY || !BINANCE_API_SECRET) {
+  pinoLogger.error("ERROR: Binance credentials not set");
+  pinoLogger.error("   Get FREE API keys at: https://www.binance.com/");
+  pinoLogger.error(
+    "   Set BINANCE_API_KEY and BINANCE_API_SECRET in .env file"
   );
-} else if (DATA_PROVIDER === "alpaca") {
-  if (!ALPACA_API_KEY || !ALPACA_API_SECRET) {
-    pinoLogger.error("ERROR: Alpaca credentials not set");
-    pinoLogger.error("   Get FREE API keys at: https://alpaca.markets/");
-    pinoLogger.error(
-      "   Set ALPACA_API_KEY and ALPACA_API_SECRET in .env file"
-    );
-    process.exit(1);
-  }
+  pinoLogger.error(
+    "   For testnet: https://testnet.binance.vision/"
+  );
+  process.exit(1);
+}
+
+const mode = BINANCE_TESTNET ? "TESTNET (FAKE MONEY)" : "LIVE (REAL MONEY)";
+pinoLogger.info(`Binance mode: ${mode}`);
+
+if (!BINANCE_TESTNET) {
+  pinoLogger.warn("⚠️  WARNING: BINANCE_TESTNET=false - USING REAL MONEY!");
+  pinoLogger.warn("⚠️  Set BINANCE_TESTNET=true in .env for paper trading");
 }

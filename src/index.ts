@@ -1,28 +1,22 @@
-import { startPolygonSocket } from "./market/polygon-ws.js";
-import { startAlpacaSocket } from "./market/alpaca-ws.js";
+import { startBinanceSocket } from "./market/binance-ws.js";
 import { SimpleSMA } from "./engine/sma-strategy.js";
 import { PositionTracker } from "./execution/position-tracker.js";
 import { DashboardServer } from "./dashboard/server.js";
 import {
   SYMBOLS,
-  DATA_PROVIDER,
-  EXTENDED_HOURS,
   EXECUTION_MODE,
-  ALPACA_API_KEY,
-  ALPACA_API_SECRET,
+  BINANCE_API_KEY,
+  BINANCE_API_SECRET,
+  BINANCE_TESTNET,
   MAX_TRADE_VALUE,
 } from "./config.js";
 import pinoLogger from "./pinoLogger.js";
 
 // Print startup info first
-pinoLogger.info("Trading Bot Starting...");
-pinoLogger.info({ symbols: SYMBOLS }, "Symbols:");
-pinoLogger.info({ extendedHours: EXTENDED_HOURS }, "Extended Hours:");
+pinoLogger.info("🚀 Crypto Trading Bot Starting...");
+pinoLogger.info({ symbols: SYMBOLS }, "Trading Pairs:");
 pinoLogger.info("Strategy: SMA(5,20) Crossover");
-pinoLogger.info(
-  { dataProvider: DATA_PROVIDER.toUpperCase() },
-  "Data Provider:"
-);
+pinoLogger.info("Data Provider: Binance");
 pinoLogger.info(
   { executionMode: EXECUTION_MODE.toUpperCase() },
   "Execution Mode:"
@@ -35,7 +29,7 @@ let placeOrder: any;
 let initializeExecution: any;
 
 if (EXECUTION_MODE === "real") {
-  const realExec = await import("./execution/alpaca-exec.js");
+  const realExec = await import("./execution/binance-exec.js");
   placeOrder = realExec.placeOrder;
   initializeExecution = realExec.initializeExecution;
 } else {
@@ -74,34 +68,30 @@ const onTrade = (tick: any) => {
   const sig = s.checkSignal();
 
   if (sig) {
-    // Calculate quantity to keep trade value under €500
+    // Calculate quantity to keep trade value under max USDT
     const maxTradeValue = Number(MAX_TRADE_VALUE);
-    const maxQty = Math.floor(maxTradeValue / tick.p);
+    const maxQty = maxTradeValue / tick.p;
 
-    // Skip trade if price is too high for even 1 share
-    if (maxQty < 1) {
+    // For crypto, we can trade fractional amounts
+    // Round to 8 decimal places (standard for crypto)
+    const roundedQty = parseFloat(maxQty.toFixed(8));
+
+    // Skip trade if quantity is too small
+    if (roundedQty <= 0) {
       pinoLogger.warn(
-        `Skipping ${sig} ${tick.sym} - price $${tick.p} exceeds max trade value €${maxTradeValue}`
+        `Skipping ${sig} ${tick.sym} - calculated quantity too small`
       );
       return;
     }
 
     const side = sig === "LONG" ? "BUY" : "SELL";
-    placeOrder(tick.sym, side, maxQty, tick.p);
+    placeOrder(tick.sym, side, roundedQty, tick.p);
   }
 };
 
-// Start WebSocket based on configured provider
-let wsConnection: any;
-if (DATA_PROVIDER === "polygon") {
-  wsConnection = startPolygonSocket(onTrade);
-} else if (DATA_PROVIDER === "alpaca") {
-  wsConnection = startAlpacaSocket(ALPACA_API_KEY, ALPACA_API_SECRET, onTrade);
-} else {
-  pinoLogger.error(`Unknown data provider: ${DATA_PROVIDER}`);
-  pinoLogger.error('Valid options: "polygon" or "alpaca"');
-  process.exit(1);
-}
+// Start Binance WebSocket
+startBinanceSocket(BINANCE_API_KEY, BINANCE_API_SECRET, onTrade, BINANCE_TESTNET);
+pinoLogger.info("✅ Binance WebSocket initialized");
 
 // Log stats every 60 seconds
 const statsInterval = setInterval(() => {
@@ -122,15 +112,6 @@ function gracefulShutdown(signal: string) {
 
   // Stop accepting new trades
   clearInterval(statsInterval);
-
-  // Close WebSocket connection
-  if (wsConnection) {
-    try {
-      wsConnection.close();
-    } catch (err) {
-      pinoLogger.error({ err }, "Error closing WebSocket");
-    }
-  }
 
   // Log final stats
   const finalStats = positionTracker.getStats();
