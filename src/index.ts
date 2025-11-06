@@ -1,5 +1,5 @@
 import { startBinanceSocket } from "./market/binance-ws.js";
-import { SimpleSMA } from "./engine/sma-strategy.js";
+import { RsiEmaStrategy } from "./engine/rsi-ema-strategy.js";
 import { PositionTracker } from "./execution/position-tracker.js";
 import { DashboardServer } from "./dashboard/server.js";
 import {
@@ -8,14 +8,13 @@ import {
   BINANCE_API_KEY,
   BINANCE_API_SECRET,
   BINANCE_TESTNET,
-  MAX_TRADE_VALUE,
 } from "./config.js";
 import pinoLogger from "./pinoLogger.js";
 
 // Print startup info first
 pinoLogger.info("🚀 Crypto Trading Bot Starting...");
 pinoLogger.info({ symbols: SYMBOLS }, "Trading Pairs:");
-pinoLogger.info("Strategy: SMA(5,20) Crossover");
+pinoLogger.info("Strategy: RSI(14) + EMA(9,21)");
 pinoLogger.info("Data Provider: Binance");
 pinoLogger.info(
   { executionMode: EXECUTION_MODE.toUpperCase() },
@@ -51,41 +50,35 @@ const positionTracker = new PositionTracker();
 // Initialize execution system with tracker and dashboard (load existing positions)
 await initializeExecution(positionTracker, dashboardServer);
 
-const smaMap = new Map<string, SimpleSMA>();
-SYMBOLS.forEach((s) => smaMap.set(s, new SimpleSMA(5, 20)));
+const strategyMap = new Map<string, RsiEmaStrategy>();
+SYMBOLS.forEach((s) => strategyMap.set(s, new RsiEmaStrategy()));
 
 // Callback function for processing trades
 const onTrade = (tick: any) => {
-  const s = smaMap.get(tick.sym);
-  if (!s) return;
+  const strategy = strategyMap.get(tick.sym);
+  if (!strategy) return;
 
   // Update price for P&L calculation
   positionTracker.updatePrice(tick.sym, tick.p);
   dashboardServer.updatePrice(tick.sym, tick.p);
 
   // Feed price to strategy
-  s.pushPrice(tick.p);
-  const sig = s.checkSignal();
+  strategy.pushPrice(tick.p);
+  const sig = strategy.checkSignal();
 
   if (sig) {
-    // Calculate quantity to keep trade value under max USDC
-    const maxTradeValue = Number(MAX_TRADE_VALUE);
-    const maxQty = maxTradeValue / tick.p;
+    // Log indicator values for debugging
+    const indicators = strategy.getIndicators();
+    pinoLogger.info(
+      { symbol: tick.sym, signal: sig, ...indicators },
+      `📊 Signal: ${sig} | EMA9: ${indicators.ema9?.toFixed(2)} | EMA21: ${indicators.ema21?.toFixed(2)} | RSI: ${indicators.rsi?.toFixed(2)}`
+    );
 
-    // For crypto, we can trade fractional amounts
-    // Round to 8 decimal places (standard for crypto)
-    const roundedQty = parseFloat(maxQty.toFixed(8));
-
-    // Skip trade if quantity is too small
-    if (roundedQty <= 0) {
-      pinoLogger.warn(
-        `Skipping ${sig} ${tick.sym} - calculated quantity too small`
-      );
-      return;
-    }
-
+    // Use risk-based position sizing - quantity will be calculated in placeOrder
     const side = sig === "LONG" ? "BUY" : "SELL";
-    placeOrder(tick.sym, side, roundedQty, tick.p);
+    
+    // Pass 0 as quantity - placeOrder will calculate based on risk management
+    placeOrder(tick.sym, side, 0, tick.p);
   }
 };
 
@@ -105,32 +98,6 @@ const statsInterval = setInterval(() => {
   pinoLogger.info(`Active Positions: ${stats.activePositions}`);
   pinoLogger.info("----------End of Stats----------");
 }, 60000);
-
-// Graceful shutdown handler
-function gracefulShutdown(signal: string) {
-  pinoLogger.info(`\n🛑 Received ${signal}, shutting down gracefully...`);
-
-  // Stop accepting new trades
-  clearInterval(statsInterval);
-
-  // Log final stats
-  const finalStats = positionTracker.getStats();
-  pinoLogger.info("----------Final Stats----------");
-  pinoLogger.info(`Total Trades: ${finalStats.totalTrades}`);
-  pinoLogger.info(
-    `Win Rate: ${finalStats.winRate.toFixed(1)}% (${finalStats.wins}W/${finalStats.losses}L)`
-  );
-  pinoLogger.info(`Total P&L: $${finalStats.totalPnl.toFixed(2)}`);
-  pinoLogger.info(`Active Positions: ${finalStats.activePositions}`);
-  pinoLogger.info("----------End of Stats----------");
-  pinoLogger.info("✅ Bot stopped successfully");
-
-  process.exit(0);
-}
-
-// Handle shutdown signals
-process.on("SIGINT", () => gracefulShutdown("SIGINT")); // Ctrl+C
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM")); // Kill command
 
 // Handle uncaught errors to prevent crashes
 process.on("uncaughtException", (err) => {

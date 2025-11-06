@@ -19,7 +19,8 @@ export const BINANCE_TESTNET = process.env.BINANCE_TESTNET !== "false"; // Defau
 export const SYMBOLS = (process.env.SYMBOLS || "BTC/USDC,ETH/USDC").split(",");
 
 // Maximum trade value (in USDC for crypto)
-export const MAX_TRADE_VALUE = Number(process.env.MAX_TRADE_VALUE) || 50;
+export const RISK_PER_TRADE = Number(process.env.RISK_PER_TRADE) || 0.02;
+export const STOP_LOSS = Number(process.env.STOP_LOSS) || 0.05;
 
 // Discord webhook URL
 export const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "";

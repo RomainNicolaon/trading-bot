@@ -4,6 +4,8 @@ import {
   BINANCE_API_KEY,
   BINANCE_API_SECRET,
   BINANCE_TESTNET,
+  RISK_PER_TRADE,
+  STOP_LOSS,
 } from "../config.js";
 import { PositionTracker } from "./position-tracker.js";
 import { DashboardServer } from "../dashboard/server.js";
@@ -158,37 +160,88 @@ export async function placeOrder(
       const balance = await exchange.fetchBalance();
       const usdc = balance.USDC || { free: 0 };
       const buyingPower = Number(usdc.free) || 0;
-      const estimatedCost = qty * price;
 
-      if (estimatedCost > buyingPower) {
-        // Adjust quantity to fit within buying power (with 1% buffer for price fluctuation)
-        const adjustedQty = (buyingPower * 0.99) / price;
+      // If qty is 0, use risk-based position sizing
+      if (qty === 0) {
+        // Risk config from .env
+        const totalCapital = Number(usdc.free) + Number(usdc.used || 0);
+        const riskPerTrade = RISK_PER_TRADE; // e.g., 0.02 = 2%
+        const entry = price;
+        const stopPrice = price * (1 - STOP_LOSS); // e.g., if price=100 and STOP_LOSS=0.05, stop=95
+        
+        // Calculate position size based on risk
+        // maxLoss = totalCapital * riskPerTrade (e.g., 50€ * 0.02 = 1€)
+        // positionSize = maxLoss / stopDistance (e.g., 1€ / 5€ = 0.2 BTC)
+        const { calculatePositionSize } = await import("./risk.js");
+        let riskQty = calculatePositionSize({
+          totalCapital,
+          riskPerTrade,
+          entry,
+          stop: stopPrice,
+        });
+
+        // Don't exceed available buying power
+        const maxQty = (buyingPower * 0.99) / price;
+        let adjustedQty = Math.min(riskQty, maxQty);
 
         // Get market info to respect minimum order size
         const market = exchange.market(symbol);
         const minQty = market.limits.amount?.min || 0;
-
         if (adjustedQty < minQty) {
           logger.warn(
-            { symbol, buyingPower, estimatedCost, minQty },
-            `Insufficient buying power: $${buyingPower.toFixed(
-              2
-            )} available, $${estimatedCost.toFixed(2)} needed. Skipping trade.`
+            { symbol, buyingPower, minQty },
+            `Insufficient buying power: $${buyingPower.toFixed(2)} available. Minimum order: ${minQty}. Skipping trade.`
           );
           return null;
         }
-
         // Round to appropriate precision
         const precision = market.precision.amount || 8;
         const roundedQty = parseFloat(adjustedQty.toFixed(precision));
-
+        
+        // Check if rounded quantity is still valid
+        if (roundedQty < minQty || roundedQty === 0) {
+          logger.warn(
+            { symbol, buyingPower, minQty, roundedQty, riskQty, totalCapital },
+            `Risk-based sizing too small: $${totalCapital.toFixed(2)} capital, 2% risk = $${(totalCapital*riskPerTrade).toFixed(2)}, calculated ${roundedQty} ${symbol.split('/')[0]} (min: ${minQty}). Skipping trade.`
+          );
+          return null;
+        }
+        
+        logger.info(
+          { symbol, buyingPower, calculatedQty: roundedQty, riskQty },
+          `Using risk-based sizing: $${totalCapital.toFixed(2)} capital, risking $${(totalCapital*riskPerTrade).toFixed(2)} → ${roundedQty} ${symbol.split('/')[0]}`
+        );
+        qty = roundedQty;
+      } else if (qty * price > buyingPower) {
+        // Fallback: adjust to fit buying power
+        const adjustedQty = (buyingPower * 0.99) / price;
+        const market = exchange.market(symbol);
+        const minQty = market.limits.amount?.min || 0;
+        if (adjustedQty < minQty) {
+          logger.warn(
+            { symbol, buyingPower, minQty },
+            `Insufficient buying power: $${buyingPower.toFixed(2)} available. Minimum order: ${minQty}. Skipping trade.`
+          );
+          return null;
+        }
+        const precision = market.precision.amount || 8;
+        const roundedQty = parseFloat(adjustedQty.toFixed(precision));
+        
+        // Check if rounded quantity is still valid
+        if (roundedQty < minQty || roundedQty === 0) {
+          logger.warn(
+            { symbol, buyingPower, minQty, roundedQty, originalQty: qty },
+            `Adjusted quantity too small: ${roundedQty} ${symbol.split('/')[0]} (min: ${minQty}). Skipping trade.`
+          );
+          return null;
+        }
+        
         logger.warn(
           {
             symbol,
             originalQty: qty,
             adjustedQty: roundedQty,
             buyingPower,
-            estimatedCost,
           },
           `Adjusted order quantity from ${qty} to ${roundedQty} to fit buying power`
         );
