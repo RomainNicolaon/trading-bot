@@ -143,8 +143,39 @@ export async function placeOrder(
         return null;
       }
 
+      // If qty is 0, sell entire position
+      if (qty === 0) {
+        qty = currentQty;
+        
+        // Check if position is large enough to sell
+        const market = exchange.market(symbol);
+        const minQty = market.limits.amount?.min || 0;
+        const minNotional = market.limits.cost?.min || 10;
+        
+        if (qty < minQty) {
+          logger.warn(
+            { symbol, qty, minQty },
+            `Position too small to sell: ${qty} ${symbol.split('/')[0]} (min: ${minQty}). Skipping.`
+          );
+          return null;
+        }
+        
+        // Check NOTIONAL value
+        if (price && qty * price < minNotional) {
+          logger.warn(
+            { symbol, qty, value: qty * price, minNotional },
+            `Position value too small to sell: $${(qty * price).toFixed(2)} (min: $${minNotional}). Skipping.`
+          );
+          return null;
+        }
+        
+        logger.info(
+          { symbol, qty },
+          `Selling entire position: ${qty} ${symbol.split('/')[0]}`
+        );
+      }
       // Adjust quantity to not exceed current position
-      if (qty > currentQty) {
+      else if (qty > currentQty) {
         logger.warn(
           { symbol, requestedQty: qty, availableQty: currentQty },
           `Adjusted SELL quantity from ${qty} to ${currentQty} (max available)`
@@ -200,18 +231,36 @@ export async function placeOrder(
         
         // Check if rounded quantity is still valid
         if (roundedQty < minQty || roundedQty === 0) {
-          logger.warn(
-            { symbol, buyingPower, minQty, roundedQty, riskQty, totalCapital },
-            `Risk-based sizing too small: $${totalCapital.toFixed(2)} capital, 2% risk = $${(totalCapital*riskPerTrade).toFixed(2)}, calculated ${roundedQty} ${symbol.split('/')[0]} (min: ${minQty}). Skipping trade.`
+          // Fallback: Check Binance NOTIONAL filter (minimum order value)
+          // Binance requires $10 minimum for most pairs (CCXT reports $5 but actual is $10)
+          const minNotional = Math.max(market.limits.cost?.min || 10, 10);
+          const minQtyForNotional = (minNotional / price) * 1.01; // Add 1% buffer
+          const effectiveMinQty = Math.max(minQty, minQtyForNotional);
+          const precision = market.precision.amount || 8;
+          const roundedMinQty = parseFloat(effectiveMinQty.toFixed(precision));
+          const minOrderValue = roundedMinQty * price;
+          
+          if (buyingPower >= minOrderValue * 1.01) {
+            // We have enough for minimum order + 1% buffer
+            qty = roundedMinQty;
+            logger.warn(
+              { symbol, buyingPower, minQty, effectiveMinQty: roundedMinQty, minNotional, riskQty, totalCapital, minOrderValue },
+              `Risk-based sizing too small (${roundedQty}), using minimum order: ${roundedMinQty} ${symbol.split('/')[0]} (~$${minOrderValue.toFixed(2)})`
+            );
+          } else {
+            logger.warn(
+              { symbol, buyingPower, minQty, effectiveMinQty: roundedMinQty, minNotional, roundedQty, riskQty, totalCapital, minOrderValue },
+              `Cannot trade: Insufficient funds for minimum order ($${minOrderValue.toFixed(2)} needed, $${buyingPower.toFixed(2)} available). Skipping trade.`
+            );
+            return null;
+          }
+        } else {
+          qty = roundedQty;
+          logger.info(
+            { symbol, buyingPower, calculatedQty: roundedQty, riskQty },
+            `Using risk-based sizing: $${totalCapital.toFixed(2)} capital, risking $${(totalCapital*riskPerTrade).toFixed(2)} → ${roundedQty} ${symbol.split('/')[0]}`
           );
-          return null;
         }
-        
-        logger.info(
-          { symbol, buyingPower, calculatedQty: roundedQty, riskQty },
-          `Using risk-based sizing: $${totalCapital.toFixed(2)} capital, risking $${(totalCapital*riskPerTrade).toFixed(2)} → ${roundedQty} ${symbol.split('/')[0]}`
-        );
-        qty = roundedQty;
       } else if (qty * price > buyingPower) {
         // Fallback: adjust to fit buying power
         const adjustedQty = (buyingPower * 0.99) / price;
