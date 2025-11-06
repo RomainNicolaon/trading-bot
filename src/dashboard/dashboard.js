@@ -45,7 +45,7 @@ function handleMessage(data) {
             if (trades.length > 100) trades.pop(); // Keep last 100
             positions = data.positions || [];
             renderAll();
-            playNotificationSound();
+            // playNotificationSound();
             break;
             
         case 'price_update':
@@ -154,7 +154,8 @@ function updateSummary() {
     );
     
     const totalPnlEl = document.getElementById('totalPnl');
-    totalPnlEl.textContent = `$${totalPnl.toFixed(2)}`;
+    const totalPnlSign = totalPnl >= 0 ? '+' : '';
+    totalPnlEl.textContent = `${totalPnlSign}$${totalPnl.toFixed(2)}`;
     totalPnlEl.className = 'card-value ' + (totalPnl >= 0 ? 'positive' : 'negative');
     
     // Total trades
@@ -311,65 +312,6 @@ function updateConnectionStatus(connected) {
     }
 }
 
-function checkMarketStatus() {
-    const now = new Date();
-    
-    // Convert to ET (UTC-5 or UTC-4 depending on DST)
-    const etOffset = -5; // Standard time, adjust for DST if needed
-    const etTime = new Date(now.getTime() + (etOffset * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
-    
-    const hours = etTime.getHours();
-    const minutes = etTime.getMinutes();
-    const day = etTime.getDay(); // 0 = Sunday, 6 = Saturday
-    const currentTime = hours * 60 + minutes; // Minutes since midnight
-    
-    const dot = document.getElementById('marketDot');
-    const text = document.getElementById('marketText');
-    
-    // Weekend
-    if (day === 0 || day === 6) {
-        dot.className = 'market-dot closed';
-        text.textContent = 'Market Closed (Weekend)';
-        return;
-    }
-    
-    // Market hours in ET
-    const preMarketStart = 4 * 60; // 4:00 AM
-    const marketOpen = 9 * 60 + 30; // 9:30 AM
-    const marketClose = 16 * 60; // 4:00 PM
-    const afterHoursEnd = 20 * 60; // 8:00 PM
-    
-    if (currentTime >= marketOpen && currentTime < marketClose) {
-        // Regular market hours
-        dot.className = 'market-dot open';
-        const closeTime = new Date(etTime);
-        closeTime.setHours(16, 0, 0);
-        const minutesUntilClose = Math.floor((closeTime - etTime) / 60000);
-        text.textContent = `Market Open (closes in ${Math.floor(minutesUntilClose / 60)}h ${minutesUntilClose % 60}m)`;
-    } else if (currentTime >= preMarketStart && currentTime < marketOpen) {
-        // Pre-market
-        dot.className = 'market-dot pre-market';
-        const openTime = new Date(etTime);
-        openTime.setHours(9, 30, 0);
-        const minutesUntilOpen = Math.floor((openTime - etTime) / 60000);
-        text.textContent = `Pre-Market (opens in ${Math.floor(minutesUntilOpen / 60)}h ${minutesUntilOpen % 60}m)`;
-    } else if (currentTime >= marketClose && currentTime < afterHoursEnd) {
-        // After hours
-        dot.className = 'market-dot after-hours';
-        text.textContent = 'After Hours Trading';
-    } else {
-        // Closed
-        dot.className = 'market-dot closed';
-        text.textContent = 'Market Closed';
-    }
-}
-
-function updateMarketStatus() {
-    checkMarketStatus();
-    // Update every minute
-    setInterval(checkMarketStatus, 60000);
-}
-
 function playNotificationSound() {
     // Simple beep using Web Audio API
     try {
@@ -475,7 +417,6 @@ function updateAccountInfo(info) {
 // Initialize on page load
 window.addEventListener('load', () => {
     connect();
-    updateMarketStatus();
     
     // Clear logs button
     document.getElementById('clearLogsBtn').addEventListener('click', clearLogs);

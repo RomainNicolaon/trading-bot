@@ -224,7 +224,7 @@ export async function placeOrder(
         side,
         qty,
       },
-      "❌ Failed to place order"
+      `❌ Failed to place order : ${error.message}`
     );
 
     // Don't throw - let bot continue running
