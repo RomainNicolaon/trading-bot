@@ -15,10 +15,10 @@ export const BINANCE_API_SECRET = process.env.BINANCE_API_SECRET || "";
 export const BINANCE_TESTNET = process.env.BINANCE_TESTNET !== "false"; // Default to testnet for safety
 
 // Trading symbols (crypto pairs on Binance)
-// Format: BTC/USDT, ETH/USDT, etc.
-export const SYMBOLS = (process.env.SYMBOLS || "BTC/USDT,ETH/USDT").split(",");
+// Format: BTC/USDC, ETH/USDC, etc.
+export const SYMBOLS = (process.env.SYMBOLS || "BTC/USDC,ETH/USDC").split(",");
 
-// Maximum trade value (in USDT for crypto)
+// Maximum trade value (in USDC for crypto)
 export const MAX_TRADE_VALUE = Number(process.env.MAX_TRADE_VALUE) || 50;
 
 // Validate Binance configuration

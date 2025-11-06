@@ -93,14 +93,14 @@ async function updateAccountInfo() {
 
   try {
     const balance = await exchange.fetchBalance();
-    const usdt = balance.USDT || { free: 0, used: 0, total: 0 };
+    const usdc = balance.USDC || { free: 0, used: 0, total: 0 };
 
     dashboardServer.updateAccountInfo({
-      buyingPower: Number(usdt.free) || 0,
-      cash: Number(usdt.free) || 0,
+      buyingPower: Number(usdc.free) || 0,
+      cash: Number(usdc.free) || 0,
       dailyChange: 0, // CCXT doesn't provide daily change directly
       dayTradeCount: 0, // No PDT rules for crypto
-      equity: Number(usdt.total) || 0,
+      equity: Number(usdc.total) || 0,
     });
   } catch (error: any) {
     logger.error({ error: error.message }, "Failed to fetch account info");
@@ -110,7 +110,7 @@ async function updateAccountInfo() {
 /**
  * Place an order on Binance using CCXT
  * 
- * @param symbol - Trading pair (e.g., "BTC/USDT")
+ * @param symbol - Trading pair (e.g., "BTC/USDC")
  * @param side - "BUY" or "SELL"
  * @param qty - Quantity to trade (in base currency, e.g., BTC)
  * @param price - Current price (for logging and validation)
@@ -153,8 +153,8 @@ export async function placeOrder(
     // Check buying power before placing BUY orders
     if (side === "BUY" && price) {
       const balance = await exchange.fetchBalance();
-      const usdt = balance.USDT || { free: 0 };
-      const buyingPower = Number(usdt.free) || 0;
+      const usdc = balance.USDC || { free: 0 };
+      const buyingPower = Number(usdc.free) || 0;
       const estimatedCost = qty * price;
 
       if (estimatedCost > buyingPower) {
@@ -264,9 +264,9 @@ export async function getPositions() {
 
     // Convert balances to position format
     for (const [currency, bal] of Object.entries(balance.total)) {
-      if (bal > 0 && currency !== "USDT") {
-        // Skip USDT as it's the quote currency
-        const symbol = `${currency}/USDT`;
+      if (bal > 0 && currency !== "USDC") {
+        // Skip USDC as it's the quote currency
+        const symbol = `${currency}/USDC`;
         
         try {
           // Fetch current price

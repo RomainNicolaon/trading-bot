@@ -68,7 +68,7 @@ const onTrade = (tick: any) => {
   const sig = s.checkSignal();
 
   if (sig) {
-    // Calculate quantity to keep trade value under max USDT
+    // Calculate quantity to keep trade value under max USDC
     const maxTradeValue = Number(MAX_TRADE_VALUE);
     const maxQty = maxTradeValue / tick.p;
 

@@ -38,14 +38,14 @@ async function closeAllBinancePositions() {
     const balance = await exchange.fetchBalance();
     const positions: any[] = [];
 
-    // Find all non-zero balances (excluding USDT)
+    // Find all non-zero balances (excluding USDC)
     for (const [currency, bal] of Object.entries(balance.total)) {
       const amount = bal as number;
-      if (amount > 0 && currency !== "USDT") {
+      if (amount > 0 && currency !== "USDC") {
         positions.push({
           currency,
           amount,
-          symbol: `${currency}/USDT`,
+          symbol: `${currency}/USDC`,
         });
       }
     }
@@ -64,7 +64,7 @@ async function closeAllBinancePositions() {
         const price = Number(ticker.last) || 0;
         const value = pos.amount * price;
         console.log(
-          `   - ${pos.symbol}: ${pos.amount} ${pos.currency} @ $${price.toFixed(2)} (≈ $${value.toFixed(2)} USDT)`
+          `   - ${pos.symbol}: ${pos.amount} ${pos.currency} @ $${price.toFixed(2)} (≈ $${value.toFixed(2)} USDC)`
         );
       } catch (err) {
         console.log(`   - ${pos.symbol}: ${pos.amount} ${pos.currency} (price unavailable)`);
@@ -73,7 +73,7 @@ async function closeAllBinancePositions() {
 
     console.log("\n🔄 Closing all positions...");
 
-    // Close each position by selling to USDT
+    // Close each position by selling to USDC
     const results: any[] = [];
     for (const pos of positions) {
       try {
@@ -116,7 +116,7 @@ async function closeAllBinancePositions() {
 
     for (const [currency, bal] of Object.entries(verifyBalance.total)) {
       const amount = bal as number;
-      if (amount > 0 && currency !== "USDT") {
+      if (amount > 0 && currency !== "USDC") {
         remainingPositions.push(`${currency}: ${amount}`);
       }
     }

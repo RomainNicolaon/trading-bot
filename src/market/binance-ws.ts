@@ -46,7 +46,7 @@ export function startBinanceSocket(
 
     reconnectAttempts = 0;
 
-    // Convert SYMBOLS format from "BTC/USDT" to "BTCUSDT" (Binance format)
+    // Convert SYMBOLS format from "BTC/USDC" to "BTCUSDC" (Binance format)
     const binanceSymbols = SYMBOLS.map(s => s.replace("/", "").toLowerCase());
 
     pinoLogger.info({ symbols: binanceSymbols }, "📡 Subscribing to trade streams");
@@ -58,7 +58,7 @@ export function startBinanceSocket(
           // Normalize Binance trade data to our TradeMsg format
           const tick: TradeMsg = {
             ev: "T",
-            sym: symbol.toUpperCase().replace(/USDT$/, "/USDT"), // Convert back to BTC/USDT format
+            sym: symbol.toUpperCase().replace(/USDC$/, "/USDC"), // Convert back to BTC/USDC format
             p: parseFloat(trade.price),
             s: parseFloat(trade.quantity),
             t: trade.eventTime,
